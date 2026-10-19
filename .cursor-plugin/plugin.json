@@ -1,0 +1,44 @@
+{
+    "name": "steerlink",
+    "displayName": "SteerLink",
+    "version": "0.1.0",
+    "description": "Steer and remote-control Claude Code from Grok Bot: delegate coding tasks, review every diff, and approve or deny each change. Also works with Codex and other ACP coding agents.",
+    "author": {
+        "name": "Stefan Martin"
+    },
+    "homepage": "https://github.com/foxkill/steerlink#readme",
+    "repository": "https://github.com/foxkill/steerlink",
+    "license": "MIT",
+    "keywords": [
+        "claude code",
+        "steer claude code",
+        "control claude code",
+        "remote control claude code",
+        "claude code steuern",
+        "claude code fernsteuern",
+        "claude",
+        "codex",
+        "coding agent",
+        "ai coding agent",
+        "delegate coding",
+        "code review",
+        "pair programming",
+        "approve changes",
+        "acp",
+        "agent client protocol",
+        "mcp",
+        "grok bot"
+    ],
+    "logo": "assets/logo.svg",
+    "variables": {
+        "type": "object",
+        "properties": {
+            "ANTHROPIC_API_KEY": {
+                "type": "string",
+                "title": "Anthropic API key",
+                "description": "Your own key from the Claude Console (platform.claude.com). Usage is billed directly to your Anthropic account."
+            }
+        },
+        "required": ["ANTHROPIC_API_KEY"]
+    }
+}

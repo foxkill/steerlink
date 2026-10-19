@@ -1,197 +1,225 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+
+import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import type { SessionManager } from "../sessions/session-manager.js";
 
 function ok(value: object): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+    return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
 }
 
 function fail(error: unknown): CallToolResult {
-  const message = error instanceof Error ? error.message : JSON.stringify(error);
-  return { content: [{ type: "text", text: `Fehler: ${message}` }], isError: true };
+    const message = error instanceof Error ? error.message : JSON.stringify(error);
+    return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
 }
 
 async function run(operation: () => Promise<object> | object): Promise<CallToolResult> {
-  try {
-    return ok(await operation());
-  } catch (error) {
-    return fail(error);
-  }
+    try {
+        return ok(await operation());
+    } catch (error) {
+        return fail(error);
+    }
 }
 
-const sessionId = z.string().describe("session_id aus start_session");
-const agentName = z.string().optional().describe("Name aus list_agents; Default ist der konfigurierte default_agent");
+const sessionId = z.string().describe("session_id from start_session");
+const agentName = z.string().optional().describe("Name from list_agents; defaults to the configured default_agent");
 
-export function createMcpServer(manager: SessionManager, version: string): McpServer {
-  const server = new McpServer(
-    { name: "grokbot-acp-connector", version },
-    {
-      instructions:
-        "Steuert ACP-Coding-Agents (Standard: Claude Code über claude-agent-acp). Ablauf: start_session(cwd) → send_prompt(text). " +
-        "Meldet send_prompt status=awaiting_permission, mit respond_permission(permission_id, allow|deny) antworten und dann " +
-        "get_session_updates(wait_seconds) abfragen, bis status=idle. Lange Aufgaben: send_prompt mit wait=false und pollen.",
-    },
-  );
+export function createMcpServer(manager: SessionManager): McpServer {
+    const server = new McpServer(
+        { name: PACKAGE_NAME, version: PACKAGE_VERSION },
+        {
+            instructions:
+                "Controls ACP coding agents (default: Claude Code via claude-agent-acp). Flow: start_session(cwd) → send_prompt(text). " +
+                "If send_prompt reports status=awaiting_permission, answer with respond_permission(permission_id, allow|deny), then " +
+                "poll get_session_updates(wait_seconds) until status=idle. Long tasks: send_prompt with wait=false, then poll.",
+        },
+    );
 
-  server.registerTool(
-    "list_agents",
-    {
-      title: "ACP-Agents auflisten",
-      description: "Listet die konfigurierten ACP-Agents (wie Zeds agent_servers) mit Status und Auth-Methoden.",
-      inputSchema: {},
-      annotations: { readOnlyHint: true },
-    },
-    () => run(() => ({ agents: manager.listAgents() })),
-  );
+    server.registerTool(
+        "list_agents",
+        {
+            title: "List ACP agents",
+            description: "Lists the configured ACP agents (like Zed's agent_servers) with status and auth methods.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true },
+        },
+        () => run(() => ({ agents: manager.listAgents() })),
+    );
 
-  server.registerTool(
-    "start_session",
-    {
-      title: "Session starten",
-      description:
-        "Startet eine neue Agent-Session in einem Arbeitsverzeichnis. mode: z. B. 'default' (fragt vor Änderungen, Standard), " +
-        "'acceptEdits', 'plan', 'auto', 'bypassPermissions' – die verfügbaren Modi stehen in der Antwort.",
-      inputSchema: {
-        cwd: z.string().describe("Absoluter Pfad des Arbeitsverzeichnisses"),
-        agent: agentName,
-        mode: z.string().optional().describe("Session-Modus; Default 'default' (jede Änderung braucht eine Freigabe)"),
-      },
-    },
-    ({ cwd, agent, mode }) => run(() => manager.startSession({ cwd, agent, mode: mode ?? "default" })),
-  );
+    server.registerTool(
+        "start_session",
+        {
+            title: "Start session",
+            description:
+                "Starts a new agent session in a working directory. mode: e.g. 'default' (asks before changes, the default), " +
+                "'acceptEdits', 'plan', 'auto', 'bypassPermissions'; the available modes are listed in the response.",
+            inputSchema: {
+                cwd: z.string().describe("Absolute path of the working directory"),
+                agent: agentName,
+                mode: z
+                    .string()
+                    .optional()
+                    .describe("Session mode; defaults to 'default' (every change needs approval)"),
+            },
+        },
+        ({ cwd, agent, mode }) => run(() => manager.startSession({ cwd, agent, mode: mode ?? "default" })),
+    );
 
-  server.registerTool(
-    "send_prompt",
-    {
-      title: "Prompt senden",
-      description:
-        "Sendet einen Prompt. Mit wait=true (Standard) kehrt der Aufruf zurück, sobald der Turn endet, eine Freigabe nötig ist " +
-        "oder timeout_seconds abläuft. Liefert Antworttext, Tool-Calls mit Diffs und offene Freigaben. wait=false startet nur.",
-      inputSchema: {
-        session_id: sessionId,
-        text: z.string().min(1).describe("Prompt-Text"),
-        wait: z.boolean().optional().describe("Auf Ende/Freigabe warten (Standard true)"),
-        timeout_seconds: z.number().int().min(1).max(3600).optional().describe("Maximale Wartezeit (Standard 120)"),
-      },
-    },
-    ({ session_id, text, wait, timeout_seconds }) =>
-      run(() => manager.sendPrompt({ session_id, text, wait: wait ?? true, timeout_seconds: timeout_seconds ?? 120 })),
-  );
+    server.registerTool(
+        "send_prompt",
+        {
+            title: "Send prompt",
+            description:
+                "Sends a prompt. With wait=true (the default) the call returns as soon as the turn ends, an approval is needed, " +
+                "or timeout_seconds elapses. Returns the response text, tool calls with diffs, and pending approvals. wait=false only starts the turn.",
+            inputSchema: {
+                session_id: sessionId,
+                text: z.string().min(1).describe("Prompt text"),
+                wait: z.boolean().optional().describe("Wait for the turn to end or an approval request (default true)"),
+                timeout_seconds: z
+                    .number()
+                    .int()
+                    .min(1)
+                    .max(3600)
+                    .optional()
+                    .describe("Maximum wait time (default 120)"),
+            },
+        },
+        ({ session_id, text, wait, timeout_seconds }) =>
+            run(() =>
+                manager.sendPrompt({ session_id, text, wait: wait ?? true, timeout_seconds: timeout_seconds ?? 120 }),
+            ),
+    );
 
-  server.registerTool(
-    "get_session_updates",
-    {
-      title: "Session-Updates abrufen",
-      description:
-        "Liefert alle Ereignisse seit dem letzten Abruf (Text, Tool-Calls, Diffs, Freigaben, Turn-Ende) plus Status. " +
-        "wait_seconds > 0 wartet so lange auf neue Ereignisse (Long-Polling).",
-      inputSchema: {
-        session_id: sessionId,
-        wait_seconds: z.number().int().min(0).max(600).optional().describe("Long-Polling-Dauer (Standard 0)"),
-        include_thoughts: z.boolean().optional().describe("Gedanken-Chunks des Agents einschließen (Standard false)"),
-      },
-      annotations: { readOnlyHint: true },
-    },
-    ({ session_id, wait_seconds, include_thoughts }) =>
-      run(() => manager.getUpdates({ session_id, wait_seconds: wait_seconds ?? 0, include_thoughts: include_thoughts ?? false })),
-  );
+    server.registerTool(
+        "get_session_updates",
+        {
+            title: "Get session updates",
+            description:
+                "Returns all events since the last call (text, tool calls, diffs, approvals, turn end) plus the status. " +
+                "wait_seconds > 0 waits that long for new events (long polling).",
+            inputSchema: {
+                session_id: sessionId,
+                wait_seconds: z.number().int().min(0).max(600).optional().describe("Long-polling duration (default 0)"),
+                include_thoughts: z.boolean().optional().describe("Include the agent's thought chunks (default false)"),
+            },
+            annotations: { readOnlyHint: true },
+        },
+        ({ session_id, wait_seconds, include_thoughts }) =>
+            run(() =>
+                manager.getUpdates({
+                    session_id,
+                    wait_seconds: wait_seconds ?? 0,
+                    include_thoughts: include_thoughts ?? false,
+                }),
+            ),
+    );
 
-  server.registerTool(
-    "list_pending_permissions",
-    {
-      title: "Offene Freigaben",
-      description: "Listet offene Permission-Anfragen der Agents (optional nur einer Session) mit Tool, Eingabe, Diff und Optionen.",
-      inputSchema: { session_id: sessionId.optional() },
-      annotations: { readOnlyHint: true },
-    },
-    ({ session_id }) => run(() => ({ pending_permissions: manager.listPendingPermissions(session_id) })),
-  );
+    server.registerTool(
+        "list_pending_permissions",
+        {
+            title: "Pending approvals",
+            description:
+                "Lists the agents' pending permission requests (optionally for one session only) with tool, input, diff and options.",
+            inputSchema: { session_id: sessionId.optional() },
+            annotations: { readOnlyHint: true },
+        },
+        ({ session_id }) => run(() => ({ pending_permissions: manager.listPendingPermissions(session_id) })),
+    );
 
-  server.registerTool(
-    "respond_permission",
-    {
-      title: "Freigabe beantworten",
-      description:
-        "Beantwortet eine Permission-Anfrage. decision: allow (einmal), allow_always, deny (einmal), deny_always. " +
-        "Alternativ eine konkrete option_id aus list_pending_permissions.",
-      inputSchema: {
-        permission_id: z.string(),
-        decision: z.enum(["allow", "allow_always", "deny", "deny_always"]).optional(),
-        option_id: z.string().optional(),
-      },
-    },
-    ({ permission_id, decision, option_id }) => run(() => manager.respondPermission({ permission_id, decision, option_id })),
-  );
+    server.registerTool(
+        "respond_permission",
+        {
+            title: "Answer approval",
+            description:
+                "Answers a permission request. decision: allow (once), allow_always, deny (once), deny_always. " +
+                "Alternatively, a specific option_id from list_pending_permissions.",
+            inputSchema: {
+                permission_id: z.string(),
+                decision: z.enum(["allow", "allow_always", "deny", "deny_always"]).optional(),
+                option_id: z.string().optional(),
+            },
+        },
+        ({ permission_id, decision, option_id }) =>
+            run(() => manager.respondPermission({ permission_id, decision, option_id })),
+    );
 
-  server.registerTool(
-    "set_mode",
-    {
-      title: "Session-Modus setzen",
-      description: "Wechselt den Modus einer Session (z. B. default, acceptEdits, plan).",
-      inputSchema: { session_id: sessionId, mode: z.string() },
-    },
-    ({ session_id, mode }) => run(() => manager.setMode(session_id, mode)),
-  );
+    server.registerTool(
+        "set_mode",
+        {
+            title: "Set session mode",
+            description: "Switches a session's mode (e.g. default, acceptEdits, plan).",
+            inputSchema: { session_id: sessionId, mode: z.string() },
+        },
+        ({ session_id, mode }) => run(() => manager.setMode(session_id, mode)),
+    );
 
-  server.registerTool(
-    "cancel",
-    {
-      title: "Turn abbrechen",
-      description: "Bricht den laufenden Turn ab (session/cancel) und zieht offene Freigaben zurück.",
-      inputSchema: { session_id: sessionId },
-    },
-    ({ session_id }) => run(() => manager.cancel(session_id)),
-  );
+    server.registerTool(
+        "cancel",
+        {
+            title: "Cancel turn",
+            description: "Cancels the running turn (session/cancel) and withdraws pending approvals.",
+            inputSchema: { session_id: sessionId },
+        },
+        ({ session_id }) => run(() => manager.cancel(session_id)),
+    );
 
-  server.registerTool(
-    "close_session",
-    {
-      title: "Session schließen",
-      description: "Bricht laufende Arbeit ab und schließt die Session.",
-      inputSchema: { session_id: sessionId },
-    },
-    ({ session_id }) => run(() => manager.closeSession(session_id)),
-  );
+    server.registerTool(
+        "close_session",
+        {
+            title: "Close session",
+            description: "Cancels running work and closes the session.",
+            inputSchema: { session_id: sessionId },
+        },
+        ({ session_id }) => run(() => manager.closeSession(session_id)),
+    );
 
-  server.registerTool(
-    "list_sessions",
-    {
-      title: "Sessions auflisten",
-      description: "Listet alle Sessions dieses Connectors mit Status.",
-      inputSchema: {},
-      annotations: { readOnlyHint: true },
-    },
-    () => run(() => ({ sessions: manager.listSessions() })),
-  );
+    server.registerTool(
+        "list_sessions",
+        {
+            title: "List sessions",
+            description: "Lists all sessions of this connector with their status.",
+            inputSchema: {},
+            annotations: { readOnlyHint: true },
+        },
+        () => run(() => ({ sessions: manager.listSessions() })),
+    );
 
-  server.registerTool(
-    "auth_status",
-    {
-      title: "Auth-Status",
-      description:
-        "Zeigt, welche Anmeldemethode aktiv ist (API-Key oder Claude-Abo), ob Zugangsdaten vorhanden sind und was der Agent " +
-        "selbst meldet – ohne Secrets. restart_agent=true startet den Agent neu (z. B. nach einem Login im Terminal).",
-      inputSchema: {
-        agent: agentName,
-        probe: z.boolean().optional().describe("Agent bei Bedarf starten und seine Meldung abwarten (Standard true)"),
-        restart_agent: z.boolean().optional().describe("Agent-Prozess vorher neu starten (nur ohne offene Sessions)"),
-      },
-    },
-    ({ agent, probe, restart_agent }) => run(() => manager.authStatus({ agent, probe: probe ?? true, restart_agent: restart_agent ?? false })),
-  );
+    server.registerTool(
+        "auth_status",
+        {
+            title: "Auth status",
+            description:
+                "Shows which sign-in method is active (API key or Claude subscription), whether credentials are present, and what the agent " +
+                "itself reports, without secrets. restart_agent=true restarts the agent (e.g. after logging in in a terminal).",
+            inputSchema: {
+                agent: agentName,
+                probe: z
+                    .boolean()
+                    .optional()
+                    .describe("Start the agent if needed and wait for its report (default true)"),
+                restart_agent: z
+                    .boolean()
+                    .optional()
+                    .describe("Restart the agent process first (only when no sessions are open)"),
+            },
+        },
+        ({ agent, probe, restart_agent }) =>
+            run(() => manager.authStatus({ agent, probe: probe ?? true, restart_agent: restart_agent ?? false })),
+    );
 
-  server.registerTool(
-    "authenticate",
-    {
-      title: "Anmelden",
-      description:
-        "Führt eine vom Agent angebotene Auth-Methode aus (siehe auth_status.auth_methods). Terminal-Methoden (z. B. Claude-Login) " +
-        "liefern nur den Befehl, den der Mensch selbst im Terminal ausführt.",
-      inputSchema: { agent: agentName, method_id: z.string() },
-    },
-    ({ agent, method_id }) => run(() => manager.authenticate({ agent, method_id })),
-  );
+    server.registerTool(
+        "authenticate",
+        {
+            title: "Sign in",
+            description:
+                "Runs an auth method offered by the agent (see auth_status.auth_methods). Terminal methods (e.g. Claude login) " +
+                "only return the command that the human runs in a terminal themselves.",
+            inputSchema: { agent: agentName, method_id: z.string() },
+        },
+        ({ agent, method_id }) => run(() => manager.authenticate({ agent, method_id })),
+    );
 
-  return server;
+    return server;
 }

@@ -1,89 +1,108 @@
-# grokbot-acp-connector
+<img src="assets/logo.svg" alt="" width="96" height="96" align="right">
 
-MCP-Server (stdio, TypeScript/Node), über den Grok Bot Coding-Agents wie Claude Code steuert – nach dem Vorbild der
-External Agents im Zed Editor. Grok Bot spricht MCP mit dem Connector, der Connector spricht als ACP-Client
-([Agent Client Protocol](https://agentclientprotocol.com)) mit dem Agent-Subprozess.
+# SteerLink
+
+Steer and remote-control **Claude Code** from **Grok Bot**. SteerLink is an MCP server that lets an MCP host
+such as Grok Bot or Cursor delegate coding work to [ACP](https://agentclientprotocol.com) coding agents — Claude Code
+by default, plus any other ACP agent such as Codex. The host starts a session in a project, sends a task, and approves
+or denies every change the agent wants to make, with the diff in front of it.
 
 ```
-Grok Bot ──MCP/stdio──▶ grokbot-acp-connector ──ACP/stdio──▶ claude-agent-acp (Claude Code)
-                                              └─ACP/stdio──▶ weitere Agents (z. B. codex-acp)
+MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ steerlink ──ACP/stdio──▶ claude-agent-acp (Claude Code)
+                                                               └─ACP/stdio──▶ other ACP agents (e.g. codex-acp)
 ```
 
-- ACP-Client: `@agentclientprotocol/sdk` (v1)
-- Standard-Agent: `@agentclientprotocol/claude-agent-acp` (wird mitinstalliert, Name `claude`)
-- Weitere Agents konfigurierbar wie Zeds `agent_servers` (`command`, `args`, `env`)
+**Product page:** <https://foxkill.github.io/steerlink/> (source in `site/`, published by
+`.github/workflows/pages.yml`).
 
-## Installation
+The bridge plays the role an editor such as Zed plays for its external agents: it is the ACP client. The agents run
+unmodified through their official ACP adapters.
 
-Voraussetzung: Node.js ≥ 20.
+> Claude Code is a product of Anthropic. Codex is a product of OpenAI. This project is independent and not
+> affiliated with or endorsed by Anthropic, OpenAI or xAI.
 
-```bash
-cd grokbot-acp-connector
-npm ci
-npm run build          # erzeugt dist/main.js
-```
+## Install as a plugin
 
-## Einbindung in Grok Bot (MCP, stdio)
+The repository is a plugin in the Cursor plugin format, which Grok Bot uses as well:
 
-Der Connector ist ein normaler stdio-MCP-Server. In der Connector-/MCP-Konfiguration von Grok Bot:
-
-**Option A – API-Key (Standard)**
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "node",
-      "args": ["/absoluter/pfad/grokbot-acp-connector/dist/main.js"],
-      "env": {
-        "ANTHROPIC_API_KEY": "<dein Anthropic API Key>"
-      }
-    }
-  }
-}
-```
-
-**Option B – eigene Claude-Subscription (bewusst gesetzt)**
-
-```json
-{
-  "mcpServers": {
-    "claude-code": {
-      "command": "node",
-      "args": ["/absoluter/pfad/grokbot-acp-connector/dist/main.js"],
-      "env": {
-        "ACP_CONNECTOR_AUTH_MODE": "subscription"
-      }
-    }
-  }
-}
-```
-
-Vorher einmal im Terminal anmelden: `claude /login` (der Login liegt danach bei Claude Code selbst), oder ein Token mit
-`claude setup-token` erzeugen und als `CLAUDE_CODE_OAUTH_TOKEN` in den `env`-Block setzen.
-
-## Anmeldung
-
-| `ACP_CONNECTOR_AUTH_MODE` | Verhalten |
+| File | Content |
 |---|---|
-| `api_key` (Default) | `ANTHROPIC_API_KEY` ist Pflicht. `CLAUDE_CODE_OAUTH_TOKEN` wird aus der Agent-Umgebung entfernt und der Adapter läuft mit `--hide-claude-auth`, d. h. ein claude.ai-Abo kann nie belastet werden. Ohne Key startet der Claude-Agent nicht; `auth_status` meldet das Problem. |
-| `subscription` | `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` werden aus der Agent-Umgebung entfernt, damit der vorhandene Claude-Code-Login (bzw. ein bereits gesetztes `CLAUDE_CODE_OAUTH_TOKEN`) greift. |
+| `.cursor-plugin/plugin.json` | Manifest, declares the variable `ANTHROPIC_API_KEY` |
+| `mcp.json` | Starts the server with `npx -y steerlink@<version>` |
+| `skills/delegate-to-coding-agent/SKILL.md` | Tells the host's agent how to use the tools and to ask you before every change |
 
-Der Connector liest, speichert, loggt oder übermittelt das Abo-Token nie; er reicht nur die vorhandene Umgebung an den
-Agent-Prozess durch. `auth_status` zeigt nur, *ob* Zugangsdaten vorhanden sind, und die vom Agent gemeldete Art
-(z. B. `account`/`Claude Max` oder `api_key`) – ohne E-Mail, Organisation oder Token.
+After installing the plugin, set **`ANTHROPIC_API_KEY`** in the plugin settings to your own key from the
+[Claude Console](https://platform.claude.com/). Usage is billed directly to your Anthropic account; the bridge never
+stores, logs or transmits the key anywhere except to the agent process it starts.
 
-> Hinweis: Laut Anthropic dürfen Drittprodukte keinen claude.ai-Login anbieten. Dieser Connector ist ein privates
-> Werkzeug für den eigenen Gebrauch; Default ist deshalb der API-Key, das Abo nur eine bewusst gesetzte Option.
-> Der Connector bietet selbst keinen Login an: `authenticate` mit einer Terminal-Methode liefert nur den Befehl, den man
-> selbst im Terminal ausführt.
+The first start downloads the package and its dependencies (about 300 MB, most of it the native Claude Code binary
+that ships with Anthropic's Agent SDK). If your host aborts that first start with a timeout, start it once more after
+the download has finished.
 
-Variablen von umgebenden Claude-Code-Sitzungen (`CLAUDECODE`, `CLAUDE_CODE_*` außer `CLAUDE_CODE_OAUTH_TOKEN` usw.)
-werden nicht an den Agent vererbt, damit er sich nicht für eine verschachtelte Sitzung hält.
+## Use it as a plain MCP server
 
-## Weitere Agents (wie Zeds `agent_servers`)
+Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20.19):
 
-Optionale JSON-Datei, Pfad in `ACP_CONNECTOR_CONFIG`:
+```json
+{
+  "mcpServers": {
+    "steerlink": {
+      "command": "npx",
+      "args": ["-y", "steerlink@0.1.0"],
+      "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
+    }
+  }
+}
+```
+
+The server runs on the machine of the host — for Grok Bot that is *Grok Bot's computer*, so project paths refer to
+that machine.
+
+## Tools
+
+| Tool | Purpose |
+|---|---|
+| `list_agents` | Configured agents with status and auth methods |
+| `start_session` | `cwd` (absolute), optional `agent` and `mode` (default `default`: every change needs approval; also `acceptEdits`, `plan`, `auto`, `bypassPermissions`) |
+| `send_prompt` | `session_id`, `text`, `wait` (default `true`), `timeout_seconds`. Returns status, response text, tool calls with diffs and pending permissions. `wait=false` only starts the turn. |
+| `get_session_updates` | Events since the last call (text, tool calls, diffs, plans, permissions, end of turn); `wait_seconds` long-polls |
+| `list_pending_permissions` | Pending permission requests with tool, input, diff and options |
+| `respond_permission` | `permission_id` plus `decision` (`allow`, `allow_always`, `deny`, `deny_always`) or a specific `option_id` |
+| `set_mode` | Change the session mode |
+| `cancel` | Cancel the running turn and withdraw pending permissions |
+| `close_session` / `list_sessions` | Manage sessions |
+| `auth_status` | Active sign-in method without secrets; `restart_agent=true` after changing credentials |
+| `authenticate` | Run an auth method offered by the agent; terminal methods only return the command |
+
+Typical flow:
+
+1. `start_session { cwd: "/path/to/project" }`
+2. `send_prompt { session_id, text: "…" }` → `status`
+   - `awaiting_permission`: review `pending_permissions` (diff!), then `respond_permission { permission_id, decision }`
+   - `running`: repeat `get_session_updates { session_id, wait_seconds: 30 }`
+   - `idle`: the turn is done; read `response_text` and `tool_calls`
+3. Long tasks: `send_prompt { …, wait: false }` and poll.
+
+## Authentication and billing
+
+| `ACP_CONNECTOR_AUTH_MODE` | Behaviour |
+|---|---|
+| `api_key` (default, used by the plugin) | `ANTHROPIC_API_KEY` is required. `CLAUDE_CODE_OAUTH_TOKEN` is removed from the agent's environment and the adapter runs with `--hide-claude-auth`, its official switch for integrations that must never bill a claude.ai subscription. |
+| `subscription` (personal use only, opt-in) | API keys are removed from the agent's environment so that your own existing Claude Code login (`claude /login`) applies. The bridge never reads, stores or forwards the subscription token. |
+
+Every user signs in with their own credentials; the bridge does not resell or intermediate Claude usage. See
+Anthropic's [legal and compliance notes for Claude Code](https://code.claude.com/docs/en/legal-and-compliance).
+
+Unset plugin variables arrive as literal placeholders such as `${ANTHROPIC_API_KEY}`; the bridge treats them as
+missing and says so in `auth_status` instead of passing them on.
+
+`auth_status` shows *whether* credentials are present and the kind of identity the agent reports (for example
+`api_key`), never e-mail addresses, organisations or tokens. Variables of a surrounding Claude Code session
+(`CLAUDECODE`, `CLAUDE_CODE_*` except `CLAUDE_CODE_OAUTH_TOKEN`) are not inherited by the agent.
+
+## More agents
+
+Optional JSON file, path in `ACP_CONNECTOR_CONFIG` (modelled on Zed's `agent_servers`):
 
 ```json
 {
@@ -100,59 +119,58 @@ Optionale JSON-Datei, Pfad in `ACP_CONNECTOR_CONFIG`:
 }
 ```
 
-- `claude` ist immer eingebaut (lokales `claude-agent-acp`); ein eigener Eintrag `claude` überschreibt ihn.
-- `auth_profile`: `"claude"` (Auth-Regeln oben, Default für den Namen `claude`) oder `"none"` (Env/Args unverändert).
-- Env-Overrides: `ACP_CONNECTOR_AUTH_MODE`, `ACP_CONNECTOR_DEFAULT_AGENT`; `ACP_CONNECTOR_DEBUG=1` spiegelt die
-  stderr-Ausgabe der Agents nach stderr (kann Kontoinfos des Agents enthalten – nur zum Debuggen).
+- `claude` is built in (the bundled `claude-agent-acp`); an entry named `claude` replaces it.
+- `auth_profile`: `"claude"` applies the rules above (default for the name `claude`); `"none"` passes env and
+  args through unchanged. Each agent's own terms apply to its use.
+- Environment overrides: `ACP_CONNECTOR_AUTH_MODE`, `ACP_CONNECTOR_DEFAULT_AGENT`. `ACP_CONNECTOR_DEBUG=1` mirrors
+  the agents' stderr (may contain account details — for debugging only).
 
-## MCP-Tools
-
-| Tool | Zweck |
-|---|---|
-| `list_agents` | Konfigurierte Agents mit Status und angebotenen Auth-Methoden |
-| `start_session` | `cwd` (absolut), optional `agent`, `mode` (Default `default` = jede Änderung braucht Freigabe; außerdem `acceptEdits`, `plan`, `auto`, `bypassPermissions`) |
-| `send_prompt` | `session_id`, `text`, `wait` (Default `true`), `timeout_seconds`. Liefert Status, Antworttext, Tool-Calls mit Diffs und offene Freigaben. `wait=false` startet nur. |
-| `get_session_updates` | Ereignisse seit dem letzten Abruf (Text, Tool-Calls, Diffs, Pläne, Freigaben, Turn-Ende); `wait_seconds` für Long-Polling |
-| `list_pending_permissions` | Offene Freigaben mit Tool, Eingabe, Diff und Optionen |
-| `respond_permission` | `permission_id` + `decision` (`allow`, `allow_always`, `deny`, `deny_always`) oder konkrete `option_id` |
-| `set_mode` | Session-Modus wechseln |
-| `cancel` | Laufenden Turn abbrechen, offene Freigaben zurückziehen |
-| `close_session` / `list_sessions` | Sessions verwalten |
-| `auth_status` | Aktive Anmeldemethode ohne Secrets; `restart_agent=true` nach einem Login im Terminal |
-| `authenticate` | Vom Agent angebotene Auth-Methode; Terminal-Methoden liefern nur den Befehl |
-
-Typischer Ablauf aus Sicht von Grok Bot:
-
-1. `start_session { cwd: "/pfad/zum/projekt" }`
-2. `send_prompt { session_id, text: "…" }` → `status`
-   - `awaiting_permission`: `pending_permissions` prüfen (Diff!), dann `respond_permission { permission_id, decision: "allow" }`
-   - `running`: `get_session_updates { session_id, wait_seconds: 30 }` wiederholen
-   - `idle`: Turn fertig, `response_text` und `tool_calls` lesen
-3. Lange Aufgaben: `send_prompt { …, wait: false }` und nur noch pollen.
-
-## Entwicklung und Tests
+## Development
 
 ```bash
-npm run typecheck
-npm test                    # Unit- und Integrationstests mit Fake-ACP-Agent (kein Netz, keine Kosten)
-npm run build               # dist/main.js (demo und test:smoke bauen selbst)
-npm run test:smoke          # echter Smoke-Test gegen claude-agent-acp (braucht Auth, siehe unten)
-npm run demo                # End-to-End-Demo: MCP-Client → dist/main.js → Claude → hello.txt
+npm ci
+npm run check           # typecheck, lint, format check, unit and integration tests, plugin validation
+npm run lint:fix        # oxlint with type-aware rules, safe fixes
+npm run format          # oxfmt, 4-space indentation
+npm run test:package    # npm pack → install into an empty folder → start via npx (needs network)
+npm run test:smoke      # against the real claude-agent-acp (needs ANTHROPIC_API_KEY)
+npm run demo            # end-to-end demo: MCP client → bridge → Claude Code → hello.txt
 ```
 
-Smoke-Test und Demo laufen mit `ANTHROPIC_API_KEY` oder, bewusst gewählt, mit
-`ACP_CONNECTOR_AUTH_MODE=subscription npm run test:smoke` bzw. `… npm run demo`. Ohne Anmeldung wird der Smoke-Test
-übersprungen.
+Tooling: TypeScript 7 with the strictest compiler options (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+`verbatimModuleSyntax`, …), [oxlint](https://oxc.rs) with type-aware rules via `oxlint-tsgolint`, and oxfmt.
+`tsconfig.json` covers the whole project for the editor, the type checker and the linter; `tsconfig.build.json` builds
+only `src/`. External JSON (config file, `package.json`) is validated with zod instead of type assertions.
 
-Struktur:
+Before submitting to a marketplace, test locally and in-app as described in
+[docs/testing-in-grok-bot.md](docs/testing-in-grok-bot.md) (`npm run plugin:local` for Cursor, a `next` prerelease for
+Grok Bot).
+
+`npm test` runs offline against a fake ACP agent and costs nothing. `npm run validate:plugin` checks the plugin
+against Cursor's submission checklist and against this repository (pinned version in `mcp.json` = `package.json`,
+declared variables, logo, skills, no secrets).
 
 ```
-src/main.ts                     stdio-Einstieg
-src/config/connector-config.ts  agent_servers, auth_mode
-src/auth/agent-launch.ts        Env/Args je Auth-Modus (ohne Secrets anzufassen)
-src/acp/agent-process.ts        Agent-Subprozess + ACP-Client-Verbindung
-src/sessions/                   Sessions, Ereignis-Puffer, Freigaben
-src/mcp/mcp-server.ts           MCP-Tools
-test/fixtures/fake-agent.ts     Fake-ACP-Agent für Integrationstests
-scripts/demo.ts                 End-to-End-Beweis
+src/main.ts                     stdio entry point
+src/package-info.ts             name and version from package.json
+src/config/                     agent_servers, auth_mode, environment handling
+src/auth/agent-launch.ts        env/args per auth mode (never touches secret values)
+src/acp/agent-process.ts        agent subprocess and ACP client connection
+src/sessions/                   sessions, event buffer, permissions
+src/mcp/mcp-server.ts           MCP tools
+.cursor-plugin/, mcp.json,      plugin
+skills/, assets/
+scripts/validate-plugin.ts      plugin validator
+test/                           tests (fake ACP agent in test/fixtures)
+test/e2e/                       package and smoke tests
 ```
+
+## Support
+
+SteerLink is free and open source. If it saves you time, you can support its development with a donation via
+[PayPal](https://paypal.me/foxkilldev). Donations are voluntary; they do not buy access, support guarantees or Claude
+usage.
+
+## License
+
+[MIT](LICENSE) © 2026 Stefan Martin

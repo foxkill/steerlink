@@ -2,143 +2,131 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
-/** Wie der Connector einen Claude-Agent anmeldet. */
-export type AuthMode = "api_key" | "subscription";
+import { z } from "zod";
+
+import { readEnv } from "./env.js";
+
+const authModeSchema = z.enum(["api_key", "subscription"], {
+    error: 'auth_mode must be "api_key" or "subscription"',
+});
+
+/** How the connector signs in a Claude agent. */
+export type AuthMode = z.infer<typeof authModeSchema>;
 
 /**
- * Ein ACP-Agent, analog zu Zeds `agent_servers`-Eintrag
- * (`type`, `command`, `args`, `env`).
+ * An ACP agent, analogous to Zed's `agent_servers` entry (`type`, `command`,
+ * `args`, `env`).
  */
+const agentServerSchema = z.object({
+    type: z.literal("custom", { error: 'only "custom" is supported' }).default("custom"),
+    command: z.string({ error: "missing" }).min(1, { error: "missing" }),
+    args: z.array(z.string(), { error: "must be an array of strings" }).default([]),
+    env: z.record(z.string(), z.string({ error: "must be a string" }), { error: "must be an object" }).default({}),
+    /**
+     * `claude`: the agent is the Claude Code adapter. The connector then
+     * enforces the auth rules from `auth_mode` (cleaning the env, `--hide-claude-auth`).
+     * `none`: env and args are passed through unchanged. If omitted, `claude`
+     * applies to the name `claude`, otherwise `none`.
+     */
+    auth_profile: z.enum(["claude", "none"], { error: 'must be "claude" or "none"' }).optional(),
+});
+
+/** Contents of the optional JSON file from `ACP_CONNECTOR_CONFIG`. */
+const configFileSchema = z.object({
+    default_agent: z.string().min(1).optional(),
+    auth_mode: authModeSchema.optional(),
+    agent_servers: z.record(z.string(), agentServerSchema).default({}),
+});
+
 export interface AgentServerConfig {
-  type: "custom";
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  /**
-   * `claude`: der Agent ist der Claude-Code-Adapter. Dann setzt der Connector
-   * die Auth-Regeln aus `auth_mode` durch (Env bereinigen, `--hide-claude-auth`).
-   * `none`: Env und Args werden unverändert durchgereicht.
-   */
-  auth_profile: "claude" | "none";
+    type: "custom";
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+    auth_profile: "claude" | "none";
 }
 
 export interface ConnectorConfig {
-  default_agent: string;
-  auth_mode: AuthMode;
-  agent_servers: Record<string, AgentServerConfig>;
-}
-
-interface RawAgentServerConfig {
-  type?: string;
-  command?: unknown;
-  args?: unknown;
-  env?: unknown;
-  auth_profile?: unknown;
-}
-
-interface RawConnectorConfig {
-  default_agent?: unknown;
-  auth_mode?: unknown;
-  agent_servers?: Record<string, RawAgentServerConfig>;
+    default_agent: string;
+    auth_mode: AuthMode;
+    agent_servers: Record<string, AgentServerConfig>;
 }
 
 export const CONFIG_ENV_VAR = "ACP_CONNECTOR_CONFIG";
 export const AUTH_MODE_ENV_VAR = "ACP_CONNECTOR_AUTH_MODE";
 export const DEFAULT_AGENT_ENV_VAR = "ACP_CONNECTOR_DEFAULT_AGENT";
 
-/** Pfad zur `claude-agent-acp`-Binary aus den eigenen node_modules. */
+/** Path to the `claude-agent-acp` binary from our own node_modules. */
 export function resolveClaudeAgentAcpBin(): string {
-  const require = createRequire(import.meta.url);
-  const packageJsonPath = require.resolve("@agentclientprotocol/claude-agent-acp/package.json");
-  return join(dirname(packageJsonPath), "dist", "index.js");
+    const require = createRequire(import.meta.url);
+    const packageJsonPath = require.resolve("@agentclientprotocol/claude-agent-acp/package.json");
+    return join(dirname(packageJsonPath), "dist", "index.js");
 }
 
 export function builtinClaudeAgent(): AgentServerConfig {
-  return {
-    type: "custom",
-    command: process.execPath,
-    args: [resolveClaudeAgentAcpBin()],
-    env: {},
-    auth_profile: "claude",
-  };
+    return {
+        type: "custom",
+        command: process.execPath,
+        args: [resolveClaudeAgentAcpBin()],
+        env: {},
+        auth_profile: "claude",
+    };
 }
 
-function parseAuthMode(value: unknown, source: string): AuthMode {
-  if (value === "api_key" || value === "subscription") {
-    return value;
-  }
-  throw new Error(`${source}: auth_mode muss "api_key" oder "subscription" sein`);
+/** Error message with a path per issue, e.g. `agent_servers.codex.command: missing`. */
+function describeIssues(error: z.ZodError): string {
+    return error.issues
+        .map((issue) => (issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
+        .join("; ");
 }
 
-function parseStringRecord(value: unknown, source: string): Record<string, string> {
-  if (value === undefined || value === null) {
-    return {};
-  }
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${source} muss ein Objekt sein`);
-  }
-  const result: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof entry !== "string") {
-      throw new Error(`${source}.${key} muss ein String sein`);
+function readConfigFile(path: string): z.infer<typeof configFileSchema> {
+    let json: unknown;
+    try {
+        json = JSON.parse(readFileSync(path, "utf8"));
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`${CONFIG_ENV_VAR}: ${path} is not readable or not JSON (${reason})`, { cause: error });
     }
-    result[key] = entry;
-  }
-  return result;
-}
-
-function parseAgentServer(name: string, raw: RawAgentServerConfig): AgentServerConfig {
-  const source = `agent_servers.${name}`;
-  if (raw.type !== undefined && raw.type !== "custom") {
-    throw new Error(`${source}.type: nur "custom" wird unterstützt`);
-  }
-  if (typeof raw.command !== "string" || raw.command.length === 0) {
-    throw new Error(`${source}.command fehlt`);
-  }
-  const args = raw.args ?? [];
-  if (!Array.isArray(args) || !args.every((arg): arg is string => typeof arg === "string")) {
-    throw new Error(`${source}.args muss ein String-Array sein`);
-  }
-  const authProfile = raw.auth_profile ?? (name === "claude" ? "claude" : "none");
-  if (authProfile !== "claude" && authProfile !== "none") {
-    throw new Error(`${source}.auth_profile muss "claude" oder "none" sein`);
-  }
-  return {
-    type: "custom",
-    command: raw.command,
-    args,
-    env: parseStringRecord(raw.env, `${source}.env`),
-    auth_profile: authProfile,
-  };
+    const parsed = configFileSchema.safeParse(json);
+    if (!parsed.success) {
+        throw new Error(`${CONFIG_ENV_VAR}: ${path} is invalid: ${describeIssues(parsed.error)}`);
+    }
+    return parsed.data;
 }
 
 /**
- * Lädt die Konfiguration aus der JSON-Datei in `ACP_CONNECTOR_CONFIG`
- * (optional) und wendet die Env-Overrides an. Ohne Datei gibt es genau den
- * eingebauten Agent `claude`. Default-Auth ist immer `api_key`.
+ * Loads the configuration from the JSON file in `ACP_CONNECTOR_CONFIG`
+ * (optional) and applies the env overrides. Empty values and unexpanded
+ * placeholders (`${X}`) count as unset. Without a file there is exactly the
+ * built-in agent `claude`. The default auth is always `api_key`.
  */
 export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {
-  let raw: RawConnectorConfig = {};
-  const configPath = env[CONFIG_ENV_VAR];
-  if (configPath) {
-    raw = JSON.parse(readFileSync(configPath, "utf8")) as RawConnectorConfig;
-  }
+    const configPath = readEnv(env, CONFIG_ENV_VAR);
+    const file = configPath === undefined ? configFileSchema.parse({}) : readConfigFile(configPath);
 
-  const agentServers: Record<string, AgentServerConfig> = { claude: builtinClaudeAgent() };
-  for (const [name, server] of Object.entries(raw.agent_servers ?? {})) {
-    agentServers[name] = parseAgentServer(name, server);
-  }
+    const agentServers: Record<string, AgentServerConfig> = { claude: builtinClaudeAgent() };
+    for (const [name, server] of Object.entries(file.agent_servers)) {
+        agentServers[name] = {
+            ...server,
+            auth_profile: server.auth_profile ?? (name === "claude" ? "claude" : "none"),
+        };
+    }
 
-  const authMode = env[AUTH_MODE_ENV_VAR]
-    ? parseAuthMode(env[AUTH_MODE_ENV_VAR], AUTH_MODE_ENV_VAR)
-    : raw.auth_mode !== undefined
-      ? parseAuthMode(raw.auth_mode, "config")
-      : "api_key";
+    const authModeOverride = readEnv(env, AUTH_MODE_ENV_VAR);
+    let authMode: AuthMode = file.auth_mode ?? "api_key";
+    if (authModeOverride !== undefined) {
+        const parsed = authModeSchema.safeParse(authModeOverride);
+        if (!parsed.success) {
+            throw new Error(`${AUTH_MODE_ENV_VAR}: ${describeIssues(parsed.error)}`);
+        }
+        authMode = parsed.data;
+    }
 
-  const defaultAgent = env[DEFAULT_AGENT_ENV_VAR] ?? (typeof raw.default_agent === "string" ? raw.default_agent : "claude");
-  if (!agentServers[defaultAgent]) {
-    throw new Error(`default_agent "${defaultAgent}" ist nicht in agent_servers definiert`);
-  }
+    const defaultAgent = readEnv(env, DEFAULT_AGENT_ENV_VAR) ?? file.default_agent ?? "claude";
+    if (!(defaultAgent in agentServers)) {
+        throw new Error(`default_agent "${defaultAgent}" is not defined in agent_servers`);
+    }
 
-  return { default_agent: defaultAgent, auth_mode: authMode, agent_servers: agentServers };
+    return { default_agent: defaultAgent, auth_mode: authMode, agent_servers: agentServers };
 }

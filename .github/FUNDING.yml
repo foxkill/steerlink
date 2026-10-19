@@ -1,0 +1,3 @@
+# Shows the "Sponsor" button on the repository page.
+# More platforms can be added later, e.g. `ko_fi: <name>` or `buy_me_a_coffee: <name>`.
+custom: ["https://paypal.me/foxkilldev"]

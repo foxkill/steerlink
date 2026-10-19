@@ -1,17 +1,23 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "declaration": false,
-    "sourceMap": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "types": ["node"]
-  },
-  "include": ["src/**/*.ts"]
+    "compilerOptions": {
+        "target": "ES2023",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "types": ["node"],
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "useUnknownInCatchVariables": true,
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": true
+    },
+    "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "vitest.config.ts", "vitest.e2e.config.ts"]
 }
