@@ -13,6 +13,7 @@ import {
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
 import type { AgentLaunch } from "../auth/agent-launch.js";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 
 /** Vom Agent gemeldete Identität, ohne E-Mail, Organisation oder sonstige Details. */
 export interface AgentReportedAuth {
@@ -125,7 +126,7 @@ export class AgentProcess {
     }
 
     const stream = ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>);
-    this.connection = client({ name: "grokbot-acp-connector" })
+    this.connection = client({ name: PACKAGE_NAME })
       .onRequest(methods.client.session.requestPermission, (context) => this.sink.onPermissionRequest(this.name, context.params))
       .onNotification(methods.client.session.update, (context) => {
         this.sink.onSessionUpdate(this.name, context.params);
@@ -152,7 +153,7 @@ export class AgentProcess {
         // Connector führt sie nie selbst aus, sondern zeigt sie als Anleitung an.
         auth: { terminal: true },
       },
-      clientInfo: { name: "grokbot-acp-connector", version: "0.1.0" },
+      clientInfo: { name: PACKAGE_NAME, version: PACKAGE_VERSION },
     });
     return this.initializeResponse;
   }

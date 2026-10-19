@@ -5,6 +5,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
+export const REPO_ROOT = root;
 export const FAKE_AGENT_PATH = join(root, "test", "fixtures", "fake-agent.ts");
 
 export interface ToolCallOutcome<T> {
@@ -20,6 +21,11 @@ export class ConnectorClient {
 
   async connect(env: Record<string, string>, useDist: boolean = false): Promise<void> {
     const args = useDist ? [join(root, "dist", "main.js")] : ["--import", "tsx", join(root, "src", "main.ts")];
+    await this.connectCommand({ command: process.execPath, args, env, cwd: root });
+  }
+
+  /** Startet einen beliebigen Befehl als Connector, z. B. `npx acp-agent-bridge` aus einer Installation. */
+  async connectCommand(params: { command: string; args: string[]; env: Record<string, string>; cwd: string }): Promise<void> {
     const baseEnv: Record<string, string> = {};
     for (const [key, value] of Object.entries(process.env)) {
       if (value !== undefined) {
@@ -27,13 +33,18 @@ export class ConnectorClient {
       }
     }
     this.transport = new StdioClientTransport({
-      command: process.execPath,
-      args,
-      env: { ...baseEnv, ...env },
-      cwd: root,
+      command: params.command,
+      args: params.args,
+      env: { ...baseEnv, ...params.env },
+      cwd: params.cwd,
       stderr: "pipe",
     });
     await this.client.connect(this.transport);
+  }
+
+  /** Name und Version, die der Connector beim MCP-`initialize` meldet. */
+  serverVersion(): { name: string; version: string } | undefined {
+    return this.client.getServerVersion();
   }
 
   async listToolNames(): Promise<string[]> {

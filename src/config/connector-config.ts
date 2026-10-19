@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { readEnv } from "./env.js";
 
 /** Wie der Connector einen Claude-Agent anmeldet. */
 export type AuthMode = "api_key" | "subscription";
@@ -114,12 +115,13 @@ function parseAgentServer(name: string, raw: RawAgentServerConfig): AgentServerC
 
 /**
  * Lädt die Konfiguration aus der JSON-Datei in `ACP_CONNECTOR_CONFIG`
- * (optional) und wendet die Env-Overrides an. Ohne Datei gibt es genau den
+ * (optional) und wendet die Env-Overrides an. Leere Werte und nicht ersetzte
+ * Platzhalter (`${X}`) zählen dabei als nicht gesetzt. Ohne Datei gibt es genau den
  * eingebauten Agent `claude`. Default-Auth ist immer `api_key`.
  */
 export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {
   let raw: RawConnectorConfig = {};
-  const configPath = env[CONFIG_ENV_VAR];
+  const configPath = readEnv(env, CONFIG_ENV_VAR);
   if (configPath) {
     raw = JSON.parse(readFileSync(configPath, "utf8")) as RawConnectorConfig;
   }
@@ -129,13 +131,14 @@ export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): Conne
     agentServers[name] = parseAgentServer(name, server);
   }
 
-  const authMode = env[AUTH_MODE_ENV_VAR]
-    ? parseAuthMode(env[AUTH_MODE_ENV_VAR], AUTH_MODE_ENV_VAR)
+  const authModeOverride = readEnv(env, AUTH_MODE_ENV_VAR);
+  const authMode = authModeOverride
+    ? parseAuthMode(authModeOverride, AUTH_MODE_ENV_VAR)
     : raw.auth_mode !== undefined
       ? parseAuthMode(raw.auth_mode, "config")
       : "api_key";
 
-  const defaultAgent = env[DEFAULT_AGENT_ENV_VAR] ?? (typeof raw.default_agent === "string" ? raw.default_agent : "claude");
+  const defaultAgent = readEnv(env, DEFAULT_AGENT_ENV_VAR) ?? (typeof raw.default_agent === "string" ? raw.default_agent : "claude");
   if (!agentServers[defaultAgent]) {
     throw new Error(`default_agent "${defaultAgent}" ist nicht in agent_servers definiert`);
   }

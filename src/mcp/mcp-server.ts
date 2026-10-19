@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import type { SessionManager } from "../sessions/session-manager.js";
 
 function ok(value: object): CallToolResult {
@@ -23,9 +24,9 @@ async function run(operation: () => Promise<object> | object): Promise<CallToolR
 const sessionId = z.string().describe("session_id aus start_session");
 const agentName = z.string().optional().describe("Name aus list_agents; Default ist der konfigurierte default_agent");
 
-export function createMcpServer(manager: SessionManager, version: string): McpServer {
+export function createMcpServer(manager: SessionManager): McpServer {
   const server = new McpServer(
-    { name: "grokbot-acp-connector", version },
+    { name: PACKAGE_NAME, version: PACKAGE_VERSION },
     {
       instructions:
         "Steuert ACP-Coding-Agents (Standard: Claude Code über claude-agent-acp). Ablauf: start_session(cwd) → send_prompt(text). " +

@@ -2,17 +2,17 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ConnectorClient } from "./helpers/connector-client.js";
-import type { AuthStatusResult, TurnResult, UpdatesResult } from "../src/sessions/session-manager.js";
+import { ConnectorClient } from "../helpers/connector-client.js";
+import type { AuthStatusResult, TurnResult, UpdatesResult } from "../../src/sessions/session-manager.js";
 
 /**
- * Echter Smoke-Test gegen claude-agent-acp. Läuft nur mit RUN_SMOKE=1 und
+ * Echter Smoke-Test gegen claude-agent-acp (`npm run test:smoke`). Läuft nur mit
  * vorhandener Anmeldung: ANTHROPIC_API_KEY (Default) oder bewusst
  * ACP_CONNECTOR_AUTH_MODE=subscription mit vorhandenem Claude-Code-Login.
  */
 const authMode = process.env.ACP_CONNECTOR_AUTH_MODE ?? "";
 const hasAuth = Boolean(process.env.ANTHROPIC_API_KEY) || authMode === "subscription";
-const enabled = process.env.RUN_SMOKE === "1" && hasAuth;
+const enabled = hasAuth;
 
 describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
   const client = new ConnectorClient();

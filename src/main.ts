@@ -2,9 +2,8 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConnectorConfig } from "./config/connector-config.js";
 import { createMcpServer } from "./mcp/mcp-server.js";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "./package-info.js";
 import { SessionManager } from "./sessions/session-manager.js";
-
-const VERSION = "0.1.0";
 
 async function main(): Promise<void> {
   // stdout gehört allein dem MCP-Protokoll.
@@ -12,7 +11,7 @@ async function main(): Promise<void> {
 
   const config = loadConnectorConfig();
   const manager = new SessionManager(config, process.env.ACP_CONNECTOR_DEBUG === "1");
-  const server = createMcpServer(manager, VERSION);
+  const server = createMcpServer(manager);
 
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
@@ -29,7 +28,7 @@ async function main(): Promise<void> {
   process.stdin.on("close", () => void shutdown());
 
   await server.connect(new StdioServerTransport());
-  console.error(`grokbot-acp-connector ${VERSION} bereit (Agents: ${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`);
+  console.error(`${PACKAGE_NAME} ${PACKAGE_VERSION} bereit (Agents: ${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`);
 }
 
 main().catch((error: unknown) => {

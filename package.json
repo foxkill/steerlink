@@ -1,18 +1,51 @@
 {
-  "name": "grokbot-acp-connector",
+  "name": "acp-agent-bridge",
   "version": "0.1.0",
-  "description": "MCP-Server (stdio), der ACP-Agents wie Claude Code für Grok Bot steuerbar macht",
-  "main": "dist/main.js",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
-    "test": "vitest run",
-    "test:smoke": "npm run build && RUN_SMOKE=1 vitest run test/smoke.test.ts",
-    "demo": "npm run build && node --import tsx scripts/demo.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit"
+  "description": "MCP server (stdio) that lets MCP hosts such as Grok Bot drive ACP coding agents like Claude Code or Codex",
+  "keywords": [
+    "mcp",
+    "acp",
+    "agent-client-protocol",
+    "model-context-protocol",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "grok-bot"
+  ],
+  "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
+  "bugs": {
+    "url": "https://github.com/foxkill/grokbot-acp-connector/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"
   },
   "license": "UNLICENSED",
+  "private": true,
   "type": "module",
+  "main": "dist/main.js",
+  "bin": {
+    "acp-agent-bridge": "dist/main.js"
+  },
+  "files": [
+    "dist/**/*.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "validate:plugin": "node --import tsx scripts/validate-plugin.ts",
+    "check": "npm run typecheck && npm test && npm run validate:plugin",
+    "test:package": "vitest run --config vitest.e2e.config.ts test/e2e/package.test.ts",
+    "test:smoke": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/smoke.test.ts",
+    "demo": "npm run build && node --import tsx scripts/demo.ts",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check && npm run test:package"
+  },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.93.0",
     "@agentclientprotocol/sdk": "^1.9.0",
@@ -24,12 +57,5 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12"
-  },
-  "bin": {
-    "grokbot-acp-connector": "dist/main.js"
-  },
-  "private": true,
-  "engines": {
-    "node": ">=20"
   }
 }

@@ -1,4 +1,5 @@
 import type { AgentServerConfig, AuthMode } from "../config/connector-config.js";
+import { isUnexpandedPlaceholder, readEnv } from "../config/env.js";
 
 export interface AgentLaunch {
   command: string;
@@ -24,8 +25,21 @@ function isParentSessionVar(name: string): boolean {
 }
 
 function hasValue(env: NodeJS.ProcessEnv, name: string): boolean {
-  const value = env[name];
-  return typeof value === "string" && value.length > 0;
+  return readEnv(env, name) !== undefined;
+}
+
+function missingApiKeyMessage(env: NodeJS.ProcessEnv): string {
+  const raw = env.ANTHROPIC_API_KEY;
+  if (typeof raw === "string" && isUnexpandedPlaceholder(raw)) {
+    return (
+      `auth_mode=api_key, aber ANTHROPIC_API_KEY ist der nicht ersetzte Platzhalter ${raw.trim()}. ` +
+      "Den eigenen Anthropic API Key in den Plugin-Einstellungen (Variable ANTHROPIC_API_KEY) eintragen."
+    );
+  }
+  return (
+    "auth_mode=api_key, aber ANTHROPIC_API_KEY ist nicht gesetzt. Key im env-Block der MCP-Konfiguration setzen " +
+    "oder bewusst ACP_CONNECTOR_AUTH_MODE=subscription wählen."
+  );
 }
 
 export class AuthConfigError extends Error {}
@@ -42,13 +56,22 @@ export class AuthConfigError extends Error {}
  *   Connector liest, speichert oder loggt dieses Token nie.
  */
 export function buildAgentLaunch(server: AgentServerConfig, authMode: AuthMode, baseEnv: NodeJS.ProcessEnv = process.env): AgentLaunch {
-  const env: NodeJS.ProcessEnv = {};
+  const merged: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(baseEnv)) {
     if (!isParentSessionVar(name)) {
+      merged[name] = value;
+    }
+  }
+  Object.assign(merged, server.env);
+
+  // Nicht ersetzte Plugin-Platzhalter wie `${X}` sind keine Werte und dürfen
+  // den Agent nicht erreichen (er hielte sie sonst z. B. für einen API-Key).
+  const env: NodeJS.ProcessEnv = {};
+  for (const [name, value] of Object.entries(merged)) {
+    if (!(typeof value === "string" && isUnexpandedPlaceholder(value))) {
       env[name] = value;
     }
   }
-  Object.assign(env, server.env);
 
   const args = [...server.args];
   if (server.auth_profile !== "claude") {
@@ -57,10 +80,7 @@ export function buildAgentLaunch(server: AgentServerConfig, authMode: AuthMode, 
 
   if (authMode === "api_key") {
     if (!hasValue(env, "ANTHROPIC_API_KEY")) {
-      throw new AuthConfigError(
-        "auth_mode=api_key, aber ANTHROPIC_API_KEY ist nicht gesetzt. Key im env-Block der MCP-Konfiguration setzen " +
-          "oder bewusst ACP_CONNECTOR_AUTH_MODE=subscription wählen.",
-      );
+      throw new AuthConfigError(missingApiKeyMessage(merged));
     }
     delete env[OAUTH_TOKEN_VAR];
     if (!args.includes(HIDE_CLAUDE_AUTH_FLAG)) {

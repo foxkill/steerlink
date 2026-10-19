@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AuthConfigError, buildAgentLaunch, HIDE_CLAUDE_AUTH_FLAG } from "../src/auth/agent-launch.js";
+import { AuthConfigError, buildAgentLaunch, describeCredentials, HIDE_CLAUDE_AUTH_FLAG } from "../src/auth/agent-launch.js";
 import { sanitizeAuthStatus } from "../src/acp/agent-process.js";
 import type { AgentServerConfig } from "../src/config/connector-config.js";
 
@@ -43,6 +43,24 @@ describe("buildAgentLaunch", () => {
     expect(launch.env.CLAUDECODE).toBeUndefined();
     expect(launch.env.CLAUDE_CODE_SESSION_ID).toBeUndefined();
     expect(launch.env.PATH).toBe("/bin");
+  });
+
+  it("api_key: nicht ersetzter Plugin-Platzhalter zählt nicht als Key", () => {
+    const env = { PATH: "/bin", ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}" };
+    expect(() => buildAgentLaunch(claude, "api_key", env)).toThrow(/nicht ersetzte Platzhalter \$\{ANTHROPIC_API_KEY\}/);
+    expect(describeCredentials(claude, env).anthropic_api_key_set).toBe(false);
+  });
+
+  it("Platzhalter aus dem env-Block erreichen den Agent nie", () => {
+    const launch = buildAgentLaunch({ ...other, env: { TOKEN: "${TOKEN}", KEEP: "x ${TOKEN}" } }, "api_key", { PATH: "/bin" });
+    expect(launch.env).not.toHaveProperty("TOKEN");
+    expect(launch.env.KEEP).toBe("x ${TOKEN}");
+  });
+
+  it("env-Block des Agents darf CLAUDE_CODE_*-Variablen bewusst setzen", () => {
+    const launch = buildAgentLaunch({ ...claude, env: { CLAUDE_CODE_USE_BEDROCK: "1" } }, "api_key", { ANTHROPIC_API_KEY: "k", CLAUDE_CODE_X: "parent" });
+    expect(launch.env.CLAUDE_CODE_USE_BEDROCK).toBe("1");
+    expect(launch.env.CLAUDE_CODE_X).toBeUndefined();
   });
 
   it("andere Agents bekommen Env und Args unverändert", () => {
