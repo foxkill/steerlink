@@ -53,7 +53,9 @@ export function createMcpServer(manager: SessionManager): McpServer {
             title: "Start session",
             description:
                 "Starts a new agent session in a working directory. mode: e.g. 'default' (asks before changes, the default), " +
-                "'acceptEdits', 'plan', 'auto', 'bypassPermissions'; the available modes are listed in the response.",
+                "'acceptEdits', 'plan', 'auto', 'bypassPermissions'; the available modes are listed in the response. " +
+                "available_commands lists the slash commands this session accepts (send one as the prompt text, e.g. '/compact'); " +
+                "commands that are not listed, such as terminal-only ones, do not work. null means the agent did not report any.",
             inputSchema: {
                 cwd: z.string().describe("Absolute path of the working directory"),
                 agent: agentName,
@@ -179,7 +181,7 @@ export function createMcpServer(manager: SessionManager): McpServer {
         "list_sessions",
         {
             title: "List sessions",
-            description: "Lists all sessions of this connector with their status.",
+            description: "Lists all sessions of this connector with their status and available slash commands.",
             inputSchema: {},
             annotations: { readOnlyHint: true },
         },

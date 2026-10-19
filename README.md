@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.1"],
+      "args": ["-y", "steerlink@0.1.2"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -76,7 +76,8 @@ A full task in one message:
 > Let Claude Code add input validation to the signup form in `/home/box/code/shop`, run the tests at the end, and
 > ask me before every change.
 
-The plugin ships no slash commands such as `/list-agents`; Grok Bot hides slash commands by default.
+The plugin ships no slash commands such as `/list-agents`; Grok Bot hides slash commands by default. Claude Code's own
+slash commands (for example `/compact`) can be sent as a prompt; `start_session` lists which ones a session accepts.
 
 For regular coding work, set up a dedicated bot: see [docs/grok-bot-instructions.md](docs/grok-bot-instructions.md)
 for ready-to-paste instructions, including a GitLab issue workflow.
@@ -86,14 +87,14 @@ for ready-to-paste instructions, including a GitLab issue workflow.
 | Tool | Purpose |
 |---|---|
 | `list_agents` | Configured agents with status and auth methods |
-| `start_session` | `cwd` (absolute), optional `agent` and `mode` (default `default`: every change needs approval; also `acceptEdits`, `plan`, `auto`, `bypassPermissions`) |
+| `start_session` | `cwd` (absolute), optional `agent` and `mode` (default `default`: every change needs approval; also `acceptEdits`, `plan`, `auto`, `bypassPermissions`). Returns the modes and `available_commands`, the slash commands the session accepts. |
 | `send_prompt` | `session_id`, `text`, `wait` (default `true`), `timeout_seconds`. Returns status, response text, tool calls with diffs and pending permissions. `wait=false` only starts the turn. |
 | `get_session_updates` | Events since the last call (text, tool calls, diffs, plans, permissions, end of turn); `wait_seconds` long-polls |
 | `list_pending_permissions` | Pending permission requests with tool, input, diff and options |
 | `respond_permission` | `permission_id` plus `decision` (`allow`, `allow_always`, `deny`, `deny_always`) or a specific `option_id` |
 | `set_mode` | Change the session mode |
 | `cancel` | Cancel the running turn and withdraw pending permissions |
-| `close_session` / `list_sessions` | Manage sessions |
+| `close_session` / `list_sessions` | Manage sessions; `list_sessions` also shows each session's slash commands |
 | `auth_status` | Active sign-in method without secrets; `restart_agent=true` after changing credentials |
 | `authenticate` | Run an auth method offered by the agent; terminal methods only return the command |
 

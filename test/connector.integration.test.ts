@@ -13,6 +13,7 @@ interface StartSessionResult {
     session_id: string;
     current_mode: string | null;
     available_modes: Array<{ id: string; name: string }>;
+    available_commands: Array<{ command: string; description: string; input_hint: string | null }> | null;
 }
 
 describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
@@ -74,6 +75,22 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
         const fake = result.data.agents.find((agent) => agent.name === "fake");
         expect(fake?.default).toBe(true);
         expect(fake?.env_keys).toEqual(["FAKE_FLAG"]);
+    });
+
+    it("start_session and list_sessions report the session's slash commands", async () => {
+        const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
+        const expected = [
+            { command: "/compact", description: "Compact the conversation", input_hint: null },
+            { command: "/review", description: "Review changes", input_hint: "what to review" },
+        ];
+        expect(session.data.available_commands).toEqual(expected);
+        const listed = await client.call<{
+            sessions: Array<{ session_id: string; available_commands: StartSessionResult["available_commands"] }>;
+        }>("list_sessions");
+        expect(listed.data.sessions.find((entry) => entry.session_id === session.data.session_id)).toMatchObject({
+            available_commands: expected,
+        });
+        await client.call("close_session", { session_id: session.data.session_id });
     });
 
     it("session → prompt → approval → file exists", async () => {
@@ -263,7 +280,7 @@ describe("auth_status with a subscription token", () => {
                     "claude-like": {
                         command: process.execPath,
                         args: ["--import", "tsx", FAKE_AGENT_PATH],
-                        env: { FAKE_AUTH_KIND: "none" },
+                        env: { FAKE_AUTH_KIND: "none", FAKE_NO_COMMANDS: "1" },
                         auth_profile: "claude",
                     },
                 },
@@ -292,5 +309,12 @@ describe("auth_status with a subscription token", () => {
         expect(status.data.agent_reported).toEqual({ kind: "none", label: "Not logged in" });
         expect(status.data.note).toMatch(/pre-session check only sees a stored claude\.ai login/);
         expect(status.text).not.toContain("test-oauth-token-not-real");
+    });
+
+    it("an agent that reports no slash commands gives available_commands: null", async () => {
+        const session = await client.call<StartSessionResult>("start_session", { cwd: configDir });
+        expect(session.isError).toBe(false);
+        expect(session.data.available_commands).toBeNull();
+        await client.call("close_session", { session_id: session.data.session_id });
     });
 });

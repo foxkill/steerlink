@@ -48,6 +48,11 @@ In the tool list the tools carry the server prefix, for example `steerlink__star
 
 For long tasks call `send_prompt` with `wait: false` and poll `get_session_updates`.
 
+**Slash commands.** `start_session` and `list_sessions` return `available_commands`, the slash
+commands this session accepts (for example `/compact`). To run one, send it as the `send_prompt`
+text. Commands that are not listed do not work through this server; terminal-only commands such
+as `/rc` (Remote Control) are never available. Tell the user instead of trying them.
+
 ## Permission requests
 
 Each entry in `pending_permissions` has a `permission_id`, a `title`, the tool `kind`, the
