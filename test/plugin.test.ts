@@ -556,7 +556,7 @@ describe("plugin against the real connector", () => {
         const client = await connect({ ...pluginEnv, ANTHROPIC_API_KEY: key });
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
         expect(status.data.credentials.anthropic_api_key_set).toBe(true);
-        expect(status.data.hide_claude_auth).toBe(true);
+        expect(status.data.effective_method).toMatch(/^Anthropic API key/);
         expect(status.data.problem).toBeNull();
         expect(status.text).not.toContain(key);
     });

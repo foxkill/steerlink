@@ -1015,7 +1015,6 @@
                         <pre class="block json">{
   <span class="k">"auth_mode"</span>: <span class="s">"api_key"</span>,
   <span class="k">"credentials"</span>: { <span class="k">"anthropic_api_key_set"</span>: true },
-  <span class="k">"hide_claude_auth"</span>: true,
   <span class="k">"agent_reported"</span>: { <span class="k">"kind"</span>: <span class="s">"api_key"</span>, <span class="k">"label"</span>: <span class="s">"Anthropic API key"</span> },
   <span class="k">"problem"</span>: null
 }</pre>
@@ -1051,7 +1050,7 @@
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.0"]
+      "args": ["-y", "steerlink@0.1.1"]
     }
   }
 }</pre>
@@ -1146,7 +1145,7 @@ and run the tests."</pre>
                     <summary>Who pays for Claude?</summary>
                     <p>
                         You do, directly to Anthropic, through your own API key. The bridge does not resell or route
-                        Claude usage, and it does not offer a claude.ai login.
+                        Claude usage, and it never sees your Claude credentials.
                     </p>
                 </details>
                 <details>

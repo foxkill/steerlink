@@ -180,7 +180,11 @@ describe("npm package: pack → install → npx", () => {
     it("starts the real Claude adapter from the installation", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "claude" });
         expect(status.data.problem).toBeNull();
-        expect(status.data.hide_claude_auth).toBe(true);
+        expect(status.data.effective_method).toMatch(/^Anthropic API key/);
+        // Anthropic does not allow products to hide Claude Code's built-in sign-in methods.
+        expect(status.data.auth_methods.map((method) => method.id)).toEqual(
+            expect.arrayContaining(["claude-ai-login", "console-login"]),
+        );
         expect(status.text).not.toContain("sk-test-not-a-real-key");
         const claude = (await client.call<{ agents: AgentInfo[] }>("list_agents")).data.agents.find(
             (agent) => agent.name === "claude",

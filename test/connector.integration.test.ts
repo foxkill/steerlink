@@ -234,7 +234,7 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
     it("auth_status: api_key mode without a key does not start Claude", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "claude" });
         expect(status.data.auth_mode).toBe("api_key");
-        expect(status.data.hide_claude_auth).toBe(true);
+        expect(status.data.effective_method).toMatch(/^none: auth_mode=api_key/);
         expect(status.data.credentials.anthropic_api_key_set).toBe(false);
         expect(status.data.problem).toContain("ANTHROPIC_API_KEY");
         const session = await client.call("start_session", { cwd: workDir, agent: "claude" });

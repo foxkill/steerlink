@@ -7,9 +7,6 @@ export interface AgentLaunch {
     env: NodeJS.ProcessEnv;
 }
 
-/** Claude adapter flag that refuses any billing through a claude.ai subscription. */
-export const HIDE_CLAUDE_AUTH_FLAG = "--hide-claude-auth";
-
 const API_KEY_VARS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"] as const;
 const OAUTH_TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN";
 /** Subscription credentials that must never reach the agent in api_key mode. */
@@ -76,12 +73,15 @@ export class AuthConfigError extends Error {}
  * Builds the command, arguments and environment for an agent process.
  *
  * For `auth_profile: "claude"`:
- * - `api_key` (default): ANTHROPIC_API_KEY is required, the OAuth token and
- *   refresh token are removed, and the adapter runs with `--hide-claude-auth`
- *   so that a subscription never pays.
+ * - `api_key` (default): ANTHROPIC_API_KEY is required, and subscription
+ *   credentials in the environment are removed so that the key pays.
  * - `subscription`: API keys are removed so that the existing Claude Code
  *   login (or an inherited CLAUDE_CODE_OAUTH_TOKEN) takes effect. The
  *   connector never reads, stores or logs this token.
+ *
+ * The agent's arguments are passed through unchanged in both modes. Anthropic
+ * does not allow products to remove or restrict Claude Code's built-in sign-in
+ * methods, so the connector only chooses which credentials it hands over.
  */
 export function buildAgentLaunch(
     server: AgentServerConfig,
@@ -117,16 +117,9 @@ export function buildAgentLaunch(
         for (const name of SUBSCRIPTION_CREDENTIAL_VARS) {
             delete env[name];
         }
-        if (!args.includes(HIDE_CLAUDE_AUTH_FLAG)) {
-            args.push(HIDE_CLAUDE_AUTH_FLAG);
-        }
     } else {
         for (const name of API_KEY_VARS) {
             delete env[name];
-        }
-        const flagIndex = args.indexOf(HIDE_CLAUDE_AUTH_FLAG);
-        if (flagIndex >= 0) {
-            args.splice(flagIndex, 1);
         }
     }
     return { command: server.command, args, env };

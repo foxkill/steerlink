@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.0"],
+      "args": ["-y", "steerlink@0.1.1"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -87,7 +87,7 @@ Typical flow:
 
 | `ACP_CONNECTOR_AUTH_MODE` | Behaviour |
 |---|---|
-| `api_key` (default, used by the plugin) | `ANTHROPIC_API_KEY` is required. `CLAUDE_CODE_OAUTH_TOKEN` is removed from the agent's environment and the adapter runs with `--hide-claude-auth`, its official switch for integrations that must never bill a claude.ai subscription. |
+| `api_key` (default, used by the plugin) | `ANTHROPIC_API_KEY` is required. Subscription credentials (`CLAUDE_CODE_OAUTH_TOKEN`) are removed from the agent's environment, so the key pays. Claude Code's built-in sign-in methods stay available, as Anthropic requires. |
 | `subscription` (personal use only, opt-in) | API keys are removed from the agent's environment so that your own existing Claude Code login (`claude /login`) applies. The bridge never reads, stores or forwards the subscription token. |
 
 Every user signs in with their own credentials; the bridge does not resell or intermediate Claude usage. See

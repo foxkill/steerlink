@@ -97,7 +97,6 @@ export interface AuthStatusResult {
     auth_profile: string;
     credentials: CredentialPresence;
     effective_method: string;
-    hide_claude_auth: boolean;
     agent_reported: AgentReportedAuth | null;
     auth_methods: Array<{ id: string; name: string; type: string }>;
     problem: string | null;
@@ -524,7 +523,7 @@ export class SessionManager implements AgentEventSink {
             effective = "managed by the agent itself (auth_profile=none)";
         } else if (this.config.auth_mode === "api_key") {
             effective = credentials.anthropic_api_key_set
-                ? "Anthropic API key from ANTHROPIC_API_KEY; claude.ai subscription blocked via --hide-claude-auth"
+                ? "Anthropic API key from ANTHROPIC_API_KEY (subscription credentials are not passed to the agent)"
                 : "none: auth_mode=api_key, but ANTHROPIC_API_KEY is missing";
         } else {
             effective = credentials.claude_code_oauth_token_set
@@ -538,7 +537,6 @@ export class SessionManager implements AgentEventSink {
             auth_profile: server.auth_profile,
             credentials,
             effective_method: effective,
-            hide_claude_auth: isClaude && this.config.auth_mode === "api_key",
             agent_reported: reported ?? null,
             auth_methods: (agentProcess?.initializeResponse?.authMethods ?? []).map((method) =>
                 describeAuthMethod(method),
