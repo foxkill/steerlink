@@ -135,7 +135,7 @@ Typischer Ablauf aus Sicht von Grok Bot:
 ```bash
 npm run typecheck
 npm test                    # Unit- und Integrationstests mit Fake-ACP-Agent (kein Netz, keine Kosten)
-npm run build
+npm run build               # dist/main.js (demo und test:smoke bauen selbst)
 npm run test:smoke          # echter Smoke-Test gegen claude-agent-acp (braucht Auth, siehe unten)
 npm run demo                # End-to-End-Demo: MCP-Client → dist/main.js → Claude → hello.txt
 ```
