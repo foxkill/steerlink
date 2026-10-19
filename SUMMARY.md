@@ -88,3 +88,5 @@ Für das eigene Abo statt des Keys `"env": { "ACP_CONNECTOR_AUTH_MODE": "subscri
   dem Fake-Agent nicht zuverlässig ab; bewiesen wurde der Fix im echten Demo-Lauf.
 - Laut Anthropic dürfen Drittprodukte kein claude.ai-Login anbieten: Der Abo-Modus ist nur für den privaten Gebrauch
   gedacht und muss bewusst gesetzt werden.
+- Git: alle Arbeit liegt in lokalen Commits auf `master`. Der Remote `origin` war bereits vorhanden; es wurde nichts
+  gepusht und kein Remote angelegt.
