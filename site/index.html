@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>ACP Agent Bridge</title>
+        <meta
+            name="description"
+            content="Let Grok Bot delegate coding work to Claude Code and other ACP agents — and approve every change, diff in hand."
+        />
+        <meta property="og:title" content="ACP Agent Bridge" />
+        <meta
+            property="og:description"
+            content="Let Grok Bot delegate coding work to Claude Code and other ACP agents — and approve every change, diff in hand."
+        />
+        <link
+            rel="icon"
+            href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2314213D'/%3E%3Cg fill='none' stroke-linecap='round' transform='translate(0 -48)'%3E%3Cpath d='M112 340 Q 256 120 400 340' stroke='%23FCA311' stroke-width='32'/%3E%3Cpath d='M184 262 V 340 M256 234 V 340 M328 262 V 340' stroke='%23FCA311' stroke-width='16'/%3E%3Cpath d='M80 340 H 432' stroke='%23E5E5E5' stroke-width='28'/%3E%3Cpath d='M112 340 V 404 M400 340 V 404' stroke='%23E5E5E5' stroke-width='28'/%3E%3C/g%3E%3C/svg%3E"
+        />
+        <style>
+            :root {
+                --bg: #f7f6f2;
+                --bg-alt: #efede6;
+                --surface: #ffffff;
+                --text: #14213d;
+                --muted: #55607a;
+                --line: #dcd8cc;
+                --accent: #e8930a;
+                --accent-strong: #c97a00;
+                --navy: #14213d;
+                --ok: #1f7a4d;
+                --ok-bg: #e6f4ec;
+                --no: #b42318;
+                --no-bg: #fdecea;
+                --code-bg: #f1efe8;
+                --shadow: 0 1px 2px rgba(20, 33, 61, 0.06), 0 12px 32px rgba(20, 33, 61, 0.08);
+                --radius: 14px;
+                --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+                --sans:
+                    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) {
+                    --bg: #0d1424;
+                    --bg-alt: #111a2e;
+                    --surface: #16213a;
+                    --text: #eef0f5;
+                    --muted: #a3acc2;
+                    --line: #26324d;
+                    --accent: #fca311;
+                    --accent-strong: #ffb84a;
+                    --ok: #5fd39a;
+                    --ok-bg: #12352a;
+                    --no: #ff8a80;
+                    --no-bg: #3a1a1c;
+                    --code-bg: #0f182b;
+                    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+                }
+            }
+            :root[data-theme="dark"] {
+                --bg: #0d1424;
+                --bg-alt: #111a2e;
+                --surface: #16213a;
+                --text: #eef0f5;
+                --muted: #a3acc2;
+                --line: #26324d;
+                --accent: #fca311;
+                --accent-strong: #ffb84a;
+                --ok: #5fd39a;
+                --ok-bg: #12352a;
+                --no: #ff8a80;
+                --no-bg: #3a1a1c;
+                --code-bg: #0f182b;
+                --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.35);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--text);
+                font: 16px/1.6 var(--sans);
+                -webkit-font-smoothing: antialiased;
+            }
+            a {
+                color: inherit;
+            }
+            code,
+            pre {
+                font-family: var(--mono);
+                font-size: 0.9em;
+            }
+            .wrap {
+                max-width: 1120px;
+                margin: 0 auto;
+                padding: 0 16px;
+            }
+            @media (min-width: 720px) {
+                .wrap {
+                    padding: 0 32px;
+                }
+            }
+
+            /* Navigation */
+            nav {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                background: color-mix(in srgb, var(--bg) 88%, transparent);
+                backdrop-filter: blur(10px);
+                border-bottom: 1px solid var(--line);
+            }
+            nav .wrap {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                height: 60px;
+                gap: 16px;
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-weight: 700;
+                text-decoration: none;
+                letter-spacing: -0.01em;
+            }
+            .brand svg {
+                width: 30px;
+                height: 30px;
+                flex: none;
+            }
+            .nav-links {
+                display: flex;
+                gap: 20px;
+                align-items: center;
+                font-size: 15px;
+            }
+            .nav-links a {
+                text-decoration: none;
+                color: var(--muted);
+            }
+            .nav-links a:hover {
+                color: var(--text);
+            }
+            .nav-links .hide-sm {
+                display: none;
+            }
+            @media (min-width: 720px) {
+                .nav-links .hide-sm {
+                    display: inline;
+                }
+            }
+
+            /* Hero */
+            .hero {
+                padding: 56px 0 40px;
+            }
+            .hero-grid {
+                display: grid;
+                gap: 40px;
+                align-items: center;
+            }
+            /* Grid- und Flex-Kinder dürfen schmaler werden als ihr längstes Wort. */
+            .hero-grid > *,
+            .flow > *,
+            .examples > *,
+            .steps > *,
+            .features > * {
+                min-width: 0;
+            }
+            @media (min-width: 960px) {
+                .hero-grid {
+                    grid-template-columns: 1fr 1.05fr;
+                    gap: 56px;
+                }
+                .hero {
+                    padding: 88px 0 72px;
+                }
+            }
+            .eyebrow {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--accent-strong);
+                background: color-mix(in srgb, var(--accent) 14%, transparent);
+                padding: 4px 12px;
+                border-radius: 999px;
+            }
+            h1 {
+                font-size: clamp(34px, 6vw, 56px);
+                line-height: 1.05;
+                letter-spacing: -0.03em;
+                margin: 18px 0 18px;
+            }
+            h1 em {
+                font-style: normal;
+                color: var(--accent-strong);
+            }
+            .lead {
+                font-size: 19px;
+                color: var(--muted);
+                max-width: 34em;
+                margin: 0 0 28px;
+            }
+            .cta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 12px 20px;
+                border-radius: 10px;
+                font-weight: 600;
+                text-decoration: none;
+                border: 1px solid var(--line);
+                background: var(--surface);
+            }
+            .btn.primary {
+                background: var(--navy);
+                color: #fff;
+                border-color: var(--navy);
+            }
+            :root[data-theme="dark"] .btn.primary {
+                background: var(--accent);
+                color: #14213d;
+                border-color: var(--accent);
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) .btn.primary {
+                    background: var(--accent);
+                    color: #14213d;
+                    border-color: var(--accent);
+                }
+            }
+            .btn:hover {
+                transform: translateY(-1px);
+            }
+            .fine {
+                font-size: 13px;
+                color: var(--muted);
+                margin-top: 16px;
+            }
+
+            /* Chat illustration */
+            .chat {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 18px;
+                box-shadow: var(--shadow);
+                overflow: hidden;
+            }
+            .chat-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--line);
+                font-size: 13px;
+                color: var(--muted);
+            }
+            .chat-head .dots {
+                display: flex;
+                gap: 6px;
+            }
+            .chat-head .dots i {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--line);
+                display: block;
+            }
+            .chat-body {
+                padding: 18px 16px 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+            }
+            .msg {
+                max-width: 92%;
+                padding: 10px 14px;
+                border-radius: 14px;
+                font-size: 15px;
+                overflow-wrap: anywhere;
+            }
+            .msg.user {
+                align-self: flex-end;
+                background: var(--navy);
+                color: #fff;
+                border-bottom-right-radius: 4px;
+            }
+            :root[data-theme="dark"] .msg.user {
+                background: #2b4a8a;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) .msg.user {
+                    background: #2b4a8a;
+                }
+            }
+            .msg.bot {
+                align-self: flex-start;
+                background: var(--bg-alt);
+                border-bottom-left-radius: 4px;
+            }
+            .tool {
+                align-self: flex-start;
+                font: 12.5px/1.4 var(--mono);
+                color: var(--muted);
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+            }
+            .tool::before {
+                content: "";
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: var(--ok);
+            }
+            .card {
+                align-self: stretch;
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                overflow: hidden;
+                background: var(--surface);
+            }
+            .card-head {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                font-weight: 600;
+                font-size: 15px;
+                border-bottom: 1px solid var(--line);
+            }
+            .badge {
+                font: 600 11px/1 var(--sans);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                padding: 5px 8px;
+                border-radius: 6px;
+                background: color-mix(in srgb, var(--accent) 18%, transparent);
+                color: var(--accent-strong);
+            }
+            .diff {
+                margin: 0;
+                padding: 10px 14px;
+                background: var(--code-bg);
+                font: 13px/1.55 var(--mono);
+                overflow-x: auto;
+            }
+            .diff .path {
+                color: var(--muted);
+                display: block;
+                margin-bottom: 4px;
+            }
+            .diff .add {
+                color: var(--ok);
+                display: block;
+            }
+            .diff .add::before {
+                content: "+ ";
+            }
+            .choices {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px 14px;
+            }
+            .choice {
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 7px 12px;
+                font-size: 14px;
+                font-weight: 600;
+                background: var(--surface);
+            }
+            .choice.sel {
+                border-color: var(--ok);
+                background: var(--ok-bg);
+                color: var(--ok);
+            }
+            .choice.deny {
+                color: var(--no);
+            }
+            .done {
+                align-self: flex-start;
+                display: flex;
+                gap: 10px;
+                align-items: flex-start;
+            }
+            .check {
+                flex: none;
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                background: var(--ok-bg);
+                color: var(--ok);
+                display: grid;
+                place-items: center;
+                font-weight: 700;
+                font-size: 13px;
+                margin-top: 9px;
+            }
+            .caption {
+                font-size: 12.5px;
+                color: var(--muted);
+                text-align: center;
+                margin-top: 12px;
+            }
+
+            /* Sections */
+            section {
+                padding: 72px 0;
+            }
+            section.alt {
+                background: var(--bg-alt);
+                border-block: 1px solid var(--line);
+            }
+            h2 {
+                font-size: clamp(26px, 4vw, 38px);
+                letter-spacing: -0.02em;
+                line-height: 1.15;
+                margin: 0 0 12px;
+            }
+            .sub {
+                color: var(--muted);
+                font-size: 18px;
+                max-width: 40em;
+                margin: 0 0 40px;
+            }
+
+            .features {
+                display: grid;
+                gap: 16px;
+                grid-template-columns: 1fr;
+            }
+            @media (min-width: 640px) {
+                .features {
+                    grid-template-columns: 1fr 1fr;
+                }
+            }
+            @media (min-width: 960px) {
+                .features {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+            }
+            .feature {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 22px;
+            }
+            .feature svg {
+                width: 28px;
+                height: 28px;
+                color: var(--accent-strong);
+            }
+            .feature h3 {
+                margin: 12px 0 6px;
+                font-size: 18px;
+                letter-spacing: -0.01em;
+            }
+            .feature p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 15px;
+            }
+
+            /* Flow diagram */
+            .flow {
+                display: grid;
+                gap: 12px;
+                align-items: stretch;
+                grid-template-columns: 1fr;
+            }
+            @media (min-width: 860px) {
+                .flow {
+                    grid-template-columns: 1fr auto 1fr auto 1fr;
+                }
+            }
+            .node {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 20px;
+            }
+            .node.mid {
+                border: 2px solid var(--accent);
+            }
+            .node small {
+                display: block;
+                color: var(--muted);
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                font-weight: 600;
+            }
+            .node strong {
+                display: block;
+                font-size: 18px;
+                margin: 4px 0 8px;
+            }
+            .node p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 14.5px;
+            }
+            .arrow {
+                display: grid;
+                place-items: center;
+                color: var(--muted);
+                font: 600 12px/1.3 var(--mono);
+                text-align: center;
+                padding: 4px;
+            }
+            .arrow span {
+                display: block;
+                font-size: 22px;
+                color: var(--accent-strong);
+            }
+            @media (max-width: 859px) {
+                .arrow span {
+                    transform: rotate(90deg);
+                }
+            }
+
+            /* Steps */
+            .steps {
+                display: grid;
+                gap: 16px;
+                counter-reset: step;
+            }
+            @media (min-width: 860px) {
+                .steps {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+            }
+            .step {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 22px;
+                position: relative;
+            }
+            .step::before {
+                counter-increment: step;
+                content: counter(step);
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                background: var(--navy);
+                color: #fff;
+                font-weight: 700;
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+            .step h3 {
+                margin: 0 0 6px;
+                font-size: 18px;
+            }
+            .step p {
+                margin: 0 0 12px;
+                color: var(--muted);
+                font-size: 15px;
+            }
+            pre.block {
+                margin: 0;
+                background: var(--code-bg);
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                padding: 12px 14px;
+                overflow-x: auto;
+                font-size: 13px;
+                line-height: 1.55;
+            }
+
+            /* Example outputs */
+            .examples {
+                display: grid;
+                gap: 20px;
+            }
+            @media (min-width: 960px) {
+                .examples {
+                    grid-template-columns: 1fr 1fr;
+                }
+            }
+            .example h3 {
+                font-size: 16px;
+                margin: 0 0 4px;
+            }
+            .example p {
+                margin: 0 0 12px;
+                color: var(--muted);
+                font-size: 14.5px;
+            }
+            .json .k {
+                color: #5b7bd5;
+            }
+            .json .s {
+                color: var(--ok);
+            }
+            .json .n {
+                color: var(--accent-strong);
+            }
+
+            /* Tools */
+            .tools {
+                width: 100%;
+                border-collapse: collapse;
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                overflow: hidden;
+                font-size: 15px;
+            }
+            .tools th,
+            .tools td {
+                text-align: left;
+                padding: 11px 14px;
+                border-bottom: 1px solid var(--line);
+                vertical-align: top;
+            }
+            .tools th {
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                background: var(--bg-alt);
+            }
+            .tools tr:last-child td {
+                border-bottom: 0;
+            }
+            .tools code {
+                white-space: nowrap;
+            }
+            .table-scroll {
+                overflow-x: auto;
+                border-radius: var(--radius);
+            }
+
+            /* FAQ */
+            details {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                padding: 16px 18px;
+                margin-bottom: 10px;
+            }
+            summary {
+                cursor: pointer;
+                font-weight: 600;
+                list-style: none;
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+            }
+            summary::-webkit-details-marker {
+                display: none;
+            }
+            summary::after {
+                content: "+";
+                color: var(--accent-strong);
+                font-size: 20px;
+                line-height: 1;
+            }
+            details[open] summary::after {
+                content: "–";
+            }
+            details p {
+                color: var(--muted);
+                margin: 10px 0 0;
+            }
+
+            footer {
+                padding: 40px 0 56px;
+                color: var(--muted);
+                font-size: 14px;
+                border-top: 1px solid var(--line);
+            }
+            footer .wrap {
+                display: grid;
+                gap: 10px;
+            }
+            .theme-toggle {
+                background: none;
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 6px 10px;
+                color: var(--text);
+                cursor: pointer;
+                font: inherit;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="wrap">
+                <a class="brand" href="#top" aria-label="ACP Agent Bridge home">
+                    <svg viewBox="0 0 512 512" aria-hidden="true">
+                        <rect width="512" height="512" rx="112" fill="#14213D" />
+                        <g fill="none" stroke-linecap="round" transform="translate(0 -48)">
+                            <path d="M112 340 Q 256 120 400 340" stroke="#FCA311" stroke-width="32" />
+                            <path d="M184 262 V 340 M256 234 V 340 M328 262 V 340" stroke="#FCA311" stroke-width="16" />
+                            <path d="M80 340 H 432" stroke="#E5E5E5" stroke-width="28" />
+                            <path d="M112 340 V 404 M400 340 V 404" stroke="#E5E5E5" stroke-width="28" />
+                        </g>
+                    </svg>
+                    ACP Agent Bridge
+                </a>
+                <div class="nav-links">
+                    <a class="hide-sm" href="#how">How it works</a>
+                    <a class="hide-sm" href="#examples">Examples</a>
+                    <a class="hide-sm" href="#setup">Setup</a>
+                    <a href="https://github.com/foxkill/grokbot-acp-connector">GitHub</a>
+                    <button class="theme-toggle" type="button" id="theme" aria-label="Toggle color theme">◐</button>
+                </div>
+            </div>
+        </nav>
+
+        <header class="hero" id="top">
+            <div class="wrap hero-grid">
+                <div>
+                    <span class="eyebrow">Plugin for Grok Bot &amp; Cursor · MCP ↔ ACP</span>
+                    <h1>Let your bot delegate the coding.<br /><em>You approve every change.</em></h1>
+                    <p class="lead">
+                        ACP Agent Bridge lets Grok Bot hand coding tasks to Claude Code — or any other ACP coding agent.
+                        Each edit and command comes back to you as a question, with the diff, before anything happens.
+                    </p>
+                    <div class="cta">
+                        <a class="btn primary" href="#setup">Get started</a>
+                        <a class="btn" href="https://github.com/foxkill/grokbot-acp-connector">View on GitHub</a>
+                    </div>
+                    <p class="fine">
+                        Bring your own Anthropic API key. Usage is billed to your own account — the bridge never sees
+                        your money or stores your key.
+                    </p>
+                </div>
+
+                <figure style="margin: 0">
+                    <div
+                        class="chat"
+                        role="img"
+                        aria-label="Illustration of a conversation in which the bot asks the user to approve a file change made by Claude Code"
+                    >
+                        <div class="chat-head">
+                            <span class="dots"><i></i><i></i><i></i></span><span>Conversation with your bot</span
+                            ><span></span>
+                        </div>
+                        <div class="chat-body">
+                            <div class="msg user">
+                                Fix the failing date test in ~/projects/invoice and run the tests.
+                            </div>
+                            <div class="tool">acp-agents__start_session · cwd ~/projects/invoice</div>
+                            <div class="tool">acp-agents__send_prompt · status awaiting_permission</div>
+                            <div class="msg bot">
+                                Claude Code found the bug in <code>src/dates.ts</code> and wants to change one line.
+                                Shall I allow it?
+                            </div>
+                            <div class="card">
+                                <div class="card-head"><span class="badge">edit</span>Edit src/dates.ts</div>
+                                <pre
+                                    class="diff"
+                                ><span class="path">src/dates.ts</span><span class="add">return addDays(start, 30 - 1);</span></pre>
+                                <div class="choices">
+                                    <span class="choice sel">✓ Allow once</span>
+                                    <span class="choice">Always allow</span>
+                                    <span class="choice deny">Deny</span>
+                                </div>
+                            </div>
+                            <div class="tool">acp-agents__respond_permission · allow</div>
+                            <div class="done">
+                                <span class="check">✓</span>
+                                <div class="msg bot">
+                                    Done. Claude Code changed <code>src/dates.ts</code> and ran <code>npm test</code>:
+                                    48 passed, 0 failed.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <figcaption class="caption">
+                        Illustration. Tool names and statuses are the real ones; the chat layout depends on your host.
+                    </figcaption>
+                </figure>
+            </div>
+        </header>
+
+        <section class="alt" id="features">
+            <div class="wrap">
+                <h2>Your bot plans. A coding agent builds. You decide.</h2>
+                <p class="sub">
+                    The bridge connects two open protocols — MCP on the bot's side, ACP on the agent's side — the same
+                    way the Zed editor runs external agents.
+                </p>
+                <div class="features">
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M9 12l2 2 4-4" />
+                            <path d="M12 3l7 4v5c0 4.5-3 8-7 9-4-1-7-4.5-7-9V7z" />
+                        </svg>
+                        <h3>Approve every change</h3>
+                        <p>
+                            Edits and commands arrive as permission requests with the diff and the options Allow once,
+                            Always allow, Deny. Nothing is written without an answer.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="8" cy="15" r="4" />
+                            <path d="M10.8 12.2L19 4" />
+                            <path d="M16 7l2 2" />
+                        </svg>
+                        <h3>Your key, your bill</h3>
+                        <p>
+                            Each user enters their own Anthropic API key in the plugin settings. The bridge passes it to
+                            the agent process and nowhere else — never into logs or tool output.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                            <path d="M17.5 14v7M14 17.5h7" />
+                        </svg>
+                        <h3>Any ACP agent</h3>
+                        <p>
+                            Claude Code is built in. Add Codex or any other ACP agent with three lines of config,
+                            modelled on Zed's <code>agent_servers</code>.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M12 6v6l4 2" />
+                            <circle cx="12" cy="12" r="9" />
+                        </svg>
+                        <h3>Long tasks, no blocking</h3>
+                        <p>
+                            Start a turn with <code>wait: false</code> and long-poll for progress. The bot stays
+                            responsive while the agent works.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M4 4h16v12H5.2L4 17.2z" />
+                            <path d="M8 9h8M8 12h5" />
+                        </svg>
+                        <h3>Answers the bot can use</h3>
+                        <p>
+                            Every call returns compact JSON: status, response text, tool calls with diffs, pending
+                            permissions and a hint for the next step.
+                        </p>
+                    </div>
+                    <div class="feature">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+                            <path d="M9 14l2 2 4-4" />
+                        </svg>
+                        <h3>Tested end to end</h3>
+                        <p>
+                            Over 130 automated tests, a validator for the plugin format, and a package test that
+                            installs the published bundle and runs it through <code>npx</code>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how">
+            <div class="wrap">
+                <h2>How it works</h2>
+                <p class="sub">
+                    The bridge is an MCP server. It starts the coding agent through its official ACP adapter,
+                    unmodified, and translates in both directions.
+                </p>
+                <div class="flow">
+                    <div class="node">
+                        <small>MCP host</small><strong>Grok Bot</strong>
+                        <p>
+                            Understands your request, calls the bridge's tools and shows you every permission request.
+                        </p>
+                    </div>
+                    <div class="arrow"><span>⇄</span>MCP · stdio</div>
+                    <div class="node mid">
+                        <small>This plugin</small><strong>ACP Agent Bridge</strong>
+                        <p>Sessions, permission queue, event buffer, secret-free auth status.</p>
+                    </div>
+                    <div class="arrow"><span>⇄</span>ACP · stdio</div>
+                    <div class="node">
+                        <small>Coding agent</small><strong>Claude Code</strong>
+                        <p>
+                            Reads and edits your project and runs commands — only after you approve. Or Codex, or
+                            another ACP agent.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="alt" id="examples">
+            <div class="wrap">
+                <h2>What the bot sees</h2>
+                <p class="sub">
+                    Real responses of the bridge, recorded with Claude Code (shortened). Your bot turns these into the
+                    conversation above.
+                </p>
+                <div class="examples">
+                    <div class="example">
+                        <h3>A change waits for approval</h3>
+                        <p><code>send_prompt</code> returns as soon as the agent needs a decision.</p>
+                        <pre class="block json">{
+  <span class="k">"status"</span>: <span class="s">"awaiting_permission"</span>,
+  <span class="k">"pending_permissions"</span>: [{
+    <span class="k">"permission_id"</span>: <span class="s">"perm-1"</span>,
+    <span class="k">"title"</span>: <span class="s">"Write hello.txt"</span>,
+    <span class="k">"kind"</span>: <span class="s">"edit"</span>,
+    <span class="k">"diffs"</span>: [{ <span class="k">"path"</span>: <span class="s">"hello.txt"</span>, <span class="k">"old_text"</span>: null, <span class="k">"new_text"</span>: <span class="s">"hi"</span> }],
+    <span class="k">"options"</span>: [
+      { <span class="k">"option_id"</span>: <span class="s">"allow"</span>, <span class="k">"name"</span>: <span class="s">"Allow"</span>, <span class="k">"kind"</span>: <span class="s">"allow_once"</span> },
+      { <span class="k">"option_id"</span>: <span class="s">"reject"</span>, <span class="k">"name"</span>: <span class="s">"Reject"</span>, <span class="k">"kind"</span>: <span class="s">"reject_once"</span> }
+    ]
+  }],
+  <span class="k">"hint"</span>: <span class="s">"Freigabe nötig: respond_permission …"</span>
+}</pre>
+                    </div>
+                    <div class="example">
+                        <h3>The turn is done</h3>
+                        <p><code>get_session_updates</code> after the approval: what changed, and how it ended.</p>
+                        <pre class="block json">{
+  <span class="k">"status"</span>: <span class="s">"idle"</span>,
+  <span class="k">"last_turn"</span>: {
+    <span class="k">"stop_reason"</span>: <span class="s">"end_turn"</span>,
+    <span class="k">"response_text"</span>: <span class="s">"Created hello.txt with the content hi."</span>,
+    <span class="k">"tool_calls"</span>: [{
+      <span class="k">"title"</span>: <span class="s">"Write hello.txt"</span>,
+      <span class="k">"kind"</span>: <span class="s">"edit"</span>,
+      <span class="k">"status"</span>: <span class="s">"completed"</span>,
+      <span class="k">"diffs"</span>: [{ <span class="k">"old_lines"</span>: <span class="n">0</span>, <span class="k">"new_lines"</span>: <span class="n">1</span> }]
+    }]
+  }
+}</pre>
+                    </div>
+                    <div class="example">
+                        <h3>Sign-in status, without secrets</h3>
+                        <p><code>auth_status</code> tells the bot whether a key is there — never the key itself.</p>
+                        <pre class="block json">{
+  <span class="k">"auth_mode"</span>: <span class="s">"api_key"</span>,
+  <span class="k">"credentials"</span>: { <span class="k">"anthropic_api_key_set"</span>: true },
+  <span class="k">"hide_claude_auth"</span>: true,
+  <span class="k">"agent_reported"</span>: { <span class="k">"kind"</span>: <span class="s">"api_key"</span>, <span class="k">"label"</span>: <span class="s">"Anthropic API key"</span> },
+  <span class="k">"problem"</span>: null
+}</pre>
+                    </div>
+                    <div class="example">
+                        <h3>Forgot the key? A clear hint.</h3>
+                        <p>An unset plugin variable is caught before the agent starts.</p>
+                        <pre class="block json">{
+  <span class="k">"auth_mode"</span>: <span class="s">"api_key"</span>,
+  <span class="k">"credentials"</span>: { <span class="k">"anthropic_api_key_set"</span>: false },
+  <span class="k">"problem"</span>: <span class="s">"… ANTHROPIC_API_KEY ist der nicht ersetzte
+    Platzhalter ${ANTHROPIC_API_KEY}. Den eigenen Anthropic API
+    Key in den Plugin-Einstellungen eintragen."</span>
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="setup">
+            <div class="wrap">
+                <h2>Set up in three steps</h2>
+                <p class="sub">
+                    Install the plugin, add your key, ask your bot. The server runs where your bot runs — for Grok Bot,
+                    on its own computer.
+                </p>
+                <div class="steps">
+                    <div class="step">
+                        <h3>Install the plugin</h3>
+                        <p>From the plugin marketplace of your host, or as a plain MCP server:</p>
+                        <pre class="block">
+{
+  "mcpServers": {
+    "acp-agents": {
+      "command": "npx",
+      "args": ["-y", "acp-agent-bridge@0.1.0"]
+    }
+  }
+}</pre>
+                    </div>
+                    <div class="step">
+                        <h3>Add your API key</h3>
+                        <p>
+                            Set the plugin variable <code>ANTHROPIC_API_KEY</code> to your own key from the Claude
+                            Console. Never paste it into the chat.
+                        </p>
+                        <pre class="block">ANTHROPIC_API_KEY = sk-ant-…</pre>
+                    </div>
+                    <div class="step">
+                        <h3>Ask your bot</h3>
+                        <p>
+                            Describe the task and the project. The bot starts a session and asks you before every
+                            change.
+                        </p>
+                        <pre class="block">
+"Let Claude Code add input
+validation to ~/projects/api
+and run the tests."</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="alt" id="tools">
+            <div class="wrap">
+                <h2>Twelve tools, one job</h2>
+                <p class="sub">Everything a bot needs to run a coding agent safely.</p>
+                <div class="table-scroll">
+                    <table class="tools">
+                        <thead>
+                            <tr>
+                                <th>Tool</th>
+                                <th>What it does</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>start_session</code></td>
+                                <td>
+                                    Start an agent session in a project directory, optionally with an agent and a mode
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><code>send_prompt</code></td>
+                                <td>
+                                    Send a task; returns when the turn ends, a permission is needed, or the timeout
+                                    passes
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><code>get_session_updates</code></td>
+                                <td>New events since the last call, with long-polling</td>
+                            </tr>
+                            <tr>
+                                <td><code>list_pending_permissions</code></td>
+                                <td>Open permission requests with diff and options</td>
+                            </tr>
+                            <tr>
+                                <td><code>respond_permission</code></td>
+                                <td>Allow or deny, once or always</td>
+                            </tr>
+                            <tr>
+                                <td><code>set_mode</code> · <code>cancel</code></td>
+                                <td>Switch the session mode, stop the running turn</td>
+                            </tr>
+                            <tr>
+                                <td><code>close_session</code> · <code>list_sessions</code></td>
+                                <td>Manage sessions</td>
+                            </tr>
+                            <tr>
+                                <td><code>list_agents</code></td>
+                                <td>Configured agents and their sign-in methods</td>
+                            </tr>
+                            <tr>
+                                <td><code>auth_status</code> · <code>authenticate</code></td>
+                                <td>Sign-in status without secrets; agent sign-in methods</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="faq">
+            <div class="wrap">
+                <h2>Questions</h2>
+                <details>
+                    <summary>Who pays for Claude?</summary>
+                    <p>
+                        You do, directly to Anthropic, through your own API key. The bridge does not resell or route
+                        Claude usage, and it does not offer a claude.ai login.
+                    </p>
+                </details>
+                <details>
+                    <summary>Can the agent change files without asking?</summary>
+                    <p>
+                        Not in the default mode. Every edit and command becomes a permission request. The plugin's
+                        instructions tell the bot to ask you and never to switch to a mode that skips approvals on its
+                        own.
+                    </p>
+                </details>
+                <details>
+                    <summary>Where does the agent run?</summary>
+                    <p>
+                        On the machine where your host runs MCP servers. For Grok Bot that is Grok Bot's computer, so
+                        project paths refer to that machine.
+                    </p>
+                </details>
+                <details>
+                    <summary>Why does the first start take a while?</summary>
+                    <p>
+                        The first start downloads the package and its dependencies, about 300 MB — most of it the native
+                        Claude Code binary that ships with Anthropic's Agent SDK. Later starts are fast.
+                    </p>
+                </details>
+                <details>
+                    <summary>Which agents work besides Claude Code?</summary>
+                    <p>
+                        Any agent that speaks ACP, for example Codex through <code>codex-acp</code>. Each agent's own
+                        terms apply.
+                    </p>
+                </details>
+            </div>
+        </section>
+
+        <footer>
+            <div class="wrap">
+                <div>
+                    ACP Agent Bridge · <a href="https://github.com/foxkill/grokbot-acp-connector">Source on GitHub</a>
+                </div>
+                <div>
+                    Claude Code is a product of Anthropic. Codex is a product of OpenAI. Grok Bot is a product of xAI.
+                    This project is independent and not affiliated with or endorsed by any of them.
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            (function () {
+                var root = document.documentElement;
+                var button = document.getElementById("theme");
+                function stored() {
+                    try {
+                        return localStorage.getItem("theme");
+                    } catch (e) {
+                        return null;
+                    }
+                }
+                var saved = stored();
+                if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+                button.addEventListener("click", function () {
+                    var dark =
+                        root.getAttribute("data-theme") === "dark" ||
+                        (!root.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+                    var next = dark ? "light" : "dark";
+                    root.setAttribute("data-theme", next);
+                    try {
+                        localStorage.setItem("theme", next);
+                    } catch (e) {}
+                });
+            })();
+        </script>
+    </body>
+</html>
