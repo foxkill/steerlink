@@ -42,7 +42,7 @@ komplett durchspielen (siehe Testanleitung).
 >    (platform.claude.com). The first start downloads about 300 MB (the native Claude Code binary from Anthropic's
 >    Agent SDK); if the first start times out, retry once the download has finished.
 > 2. Ask Grok Bot: "Call auth_status of acp-agents." Expect `problem: null` and `auth_mode: api_key`.
-> 3. Ask: "Create a folder /tmp/acp-demo and let Claude Code create hello.txt with the content hi there."
+> 3. Ask: "Create a folder /tmp/acp-demo and let Claude Code create hello.txt with the content hi."
 >    Grok Bot calls `start_session` and `send_prompt`; the agent requests permission to write `hello.txt`.
 > 4. Grok Bot shows the request with its diff and asks you. Approve it. Expect status `idle` and the file
 >    `/tmp/acp-demo/hello.txt` containing `hi`.

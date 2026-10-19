@@ -1,61 +1,68 @@
 {
-  "name": "acp-agent-bridge",
-  "version": "0.1.0",
-  "description": "MCP server (stdio) that lets MCP hosts such as Grok Bot drive ACP coding agents like Claude Code or Codex",
-  "keywords": [
-    "mcp",
-    "acp",
-    "agent-client-protocol",
-    "model-context-protocol",
-    "coding-agent",
-    "claude-code",
-    "codex",
-    "grok-bot"
-  ],
-  "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
-  "bugs": {
-    "url": "https://github.com/foxkill/grokbot-acp-connector/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"
-  },
-  "license": "UNLICENSED",
-  "private": true,
-  "type": "module",
-  "main": "dist/main.js",
-  "bin": {
-    "acp-agent-bridge": "dist/main.js"
-  },
-  "files": [
-    "dist/**/*.js"
-  ],
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
-    "start": "node dist/main.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "test": "vitest run",
-    "validate:plugin": "node --import tsx scripts/validate-plugin.ts",
-    "check": "npm run typecheck && npm test && npm run validate:plugin",
-    "test:package": "vitest run --config vitest.e2e.config.ts test/e2e/package.test.ts",
-    "test:smoke": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/smoke.test.ts",
-    "demo": "npm run build && node --import tsx scripts/demo.ts",
-    "prepack": "npm run build",
-    "prepublishOnly": "npm run check && npm run test:package"
-  },
-  "dependencies": {
-    "@agentclientprotocol/claude-agent-acp": "^0.93.0",
-    "@agentclientprotocol/sdk": "^1.9.0",
-    "@modelcontextprotocol/sdk": "^1.32.1",
-    "zod": "^4.6.7"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.43",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.12"
-  }
+    "name": "acp-agent-bridge",
+    "version": "0.1.0",
+    "private": true,
+    "description": "MCP server (stdio) that lets MCP hosts such as Grok Bot drive ACP coding agents like Claude Code or Codex",
+    "keywords": [
+        "acp",
+        "agent-client-protocol",
+        "claude-code",
+        "codex",
+        "coding-agent",
+        "grok-bot",
+        "mcp",
+        "model-context-protocol"
+    ],
+    "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
+    "bugs": {
+        "url": "https://github.com/foxkill/grokbot-acp-connector/issues"
+    },
+    "license": "UNLICENSED",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"
+    },
+    "bin": {
+        "acp-agent-bridge": "dist/main.js"
+    },
+    "files": [
+        "dist/**/*.js"
+    ],
+    "type": "module",
+    "main": "dist/main.js",
+    "scripts": {
+        "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+        "start": "node dist/main.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+        "test": "vitest run",
+        "validate:plugin": "node --import tsx scripts/validate-plugin.ts",
+        "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run validate:plugin",
+        "test:package": "vitest run --config vitest.e2e.config.ts test/e2e/package.test.ts",
+        "test:smoke": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/smoke.test.ts",
+        "demo": "npm run build && node --import tsx scripts/demo.ts",
+        "prepack": "npm run build",
+        "prepublishOnly": "npm run check && npm run test:package",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "format": "oxfmt",
+        "format:check": "oxfmt --check"
+    },
+    "dependencies": {
+        "@agentclientprotocol/claude-agent-acp": "^0.93.0",
+        "@agentclientprotocol/sdk": "^1.9.0",
+        "@modelcontextprotocol/sdk": "^1.32.1",
+        "zod": "^4.6.7"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.5",
+        "oxfmt": "0.73.0",
+        "oxlint": "1.88.0",
+        "oxlint-tsgolint": "7.0.2004",
+        "tsx": "^4.23.15",
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.12"
+    },
+    "engines": {
+        "node": ">=22"
+    }
 }

@@ -6,10 +6,10 @@ import { defineConfig } from "vitest/config";
  * Anmeldung bei Anthropic.
  */
 export default defineConfig({
-  test: {
-    include: ["test/e2e/**/*.test.ts"],
-    testTimeout: 600000,
-    hookTimeout: 600000,
-    fileParallelism: false,
-  },
+    test: {
+        include: ["test/e2e/**/*.test.ts"],
+        testTimeout: 600000,
+        hookTimeout: 600000,
+        fileParallelism: false,
+    },
 });

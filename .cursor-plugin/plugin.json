@@ -1,25 +1,25 @@
 {
-  "name": "acp-agent-bridge",
-  "displayName": "ACP Agent Bridge",
-  "version": "0.1.0",
-  "description": "Delegate coding tasks to ACP coding agents such as Claude Code: start a session in a project, review every diff, and approve or deny each change.",
-  "author": {
-    "name": "foxkill"
-  },
-  "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
-  "repository": "https://github.com/foxkill/grokbot-acp-connector",
-  "license": "UNLICENSED",
-  "keywords": ["acp", "agent-client-protocol", "coding-agent", "claude-code", "mcp", "code-review"],
-  "logo": "assets/logo.svg",
-  "variables": {
-    "type": "object",
-    "properties": {
-      "ANTHROPIC_API_KEY": {
-        "type": "string",
-        "title": "Anthropic API key",
-        "description": "Your own key from the Claude Console (platform.claude.com). Usage is billed directly to your Anthropic account."
-      }
+    "name": "acp-agent-bridge",
+    "displayName": "ACP Agent Bridge",
+    "version": "0.1.0",
+    "description": "Delegate coding tasks to ACP coding agents such as Claude Code: start a session in a project, review every diff, and approve or deny each change.",
+    "author": {
+        "name": "foxkill"
     },
-    "required": ["ANTHROPIC_API_KEY"]
-  }
+    "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
+    "repository": "https://github.com/foxkill/grokbot-acp-connector",
+    "license": "UNLICENSED",
+    "keywords": ["acp", "agent-client-protocol", "coding-agent", "claude-code", "mcp", "code-review"],
+    "logo": "assets/logo.svg",
+    "variables": {
+        "type": "object",
+        "properties": {
+            "ANTHROPIC_API_KEY": {
+                "type": "string",
+                "title": "Anthropic API key",
+                "description": "Your own key from the Claude Console (platform.claude.com). Usage is billed directly to your Anthropic account."
+            }
+        },
+        "required": ["ANTHROPIC_API_KEY"]
+    }
 }

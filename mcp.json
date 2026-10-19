@@ -1,12 +1,12 @@
 {
-  "mcpServers": {
-    "acp-agents": {
-      "command": "npx",
-      "args": ["-y", "acp-agent-bridge@0.1.0"],
-      "env": {
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
-        "ACP_CONNECTOR_AUTH_MODE": "api_key"
-      }
+    "mcpServers": {
+        "acp-agents": {
+            "command": "npx",
+            "args": ["-y", "acp-agent-bridge@0.1.0"],
+            "env": {
+                "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+                "ACP_CONNECTOR_AUTH_MODE": "api_key"
+            }
+        }
     }
-  }
 }

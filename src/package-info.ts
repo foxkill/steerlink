@@ -1,8 +1,8 @@
 import { createRequire } from "node:module";
 
 interface PackageJson {
-  name: string;
-  version: string;
+    name: string;
+    version: string;
 }
 
 /**
