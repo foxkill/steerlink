@@ -60,7 +60,7 @@ export class ConnectorClient {
         await this.connectCommand({ command: process.execPath, args, env, cwd: root, isolated });
     }
 
-    /** Starts any command as the connector, e.g. `npx agent-steer` from an installation. */
+    /** Starts any command as the connector, e.g. `npx steerlink` from an installation. */
     async connectCommand(params: {
         command: string;
         args: string[];

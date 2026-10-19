@@ -1,16 +1,16 @@
 ---
 name: delegate-to-coding-agent
-description: Delegate a coding task in a local project to an ACP coding agent (default Claude Code) through the agent-steer MCP server, and let the user review and approve every change. Use when the user asks to have code written, fixed, refactored, reviewed or explained by Claude Code or another coding agent.
+description: Delegate a coding task in a local project to an ACP coding agent (default Claude Code) through the steerlink MCP server, and let the user review and approve every change. Use when the user asks to have code written, fixed, refactored, reviewed or explained by Claude Code or another coding agent.
 ---
 
 # Delegate to a coding agent
 
-The `agent-steer` MCP server drives ACP coding agents (Claude Code by default, plus any
+The `steerlink` MCP server drives ACP coding agents (Claude Code by default, plus any
 agent the user configured, such as Codex). You talk to the agent; the agent edits files.
 Every file change and command the agent wants to run comes back to you as a permission
 request, and the **user** decides on it.
 
-In the tool list the tools carry the server prefix, for example `agent-steer__start_session`.
+In the tool list the tools carry the server prefix, for example `steerlink__start_session`.
 
 ## Tools
 

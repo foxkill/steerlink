@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Agent Steer – control Claude Code from Grok Bot</title>
+        <title>SteerLink – control Claude Code from Grok Bot</title>
         <meta
             name="description"
             content="Steer and remote-control Claude Code from Grok Bot: delegate coding tasks, review every diff, and approve or deny each change. Works with Codex and other ACP coding agents too."
@@ -12,7 +12,7 @@
             name="keywords"
             content="claude code, steer claude code, control claude code, remote control claude code, claude code steuern, grok bot, codex, coding agent, mcp, acp"
         />
-        <meta property="og:title" content="Agent Steer" />
+        <meta property="og:title" content="SteerLink" />
         <meta property="og:image" content="https://foxkill.github.io/grokbot-acp-connector/logo.png" />
         <meta name="twitter:card" content="summary" />
         <meta
@@ -717,7 +717,7 @@
     <body>
         <nav>
             <div class="wrap">
-                <a class="brand" href="#top" aria-label="Agent Steer home">
+                <a class="brand" href="#top" aria-label="SteerLink home">
                     <svg viewBox="0 0 1024 1024" aria-hidden="true">
                         <rect width="1024" height="1024" rx="230" fill="#0F1A35" />
                         <g fill="none" stroke-width="84" stroke-linecap="round" stroke-linejoin="round">
@@ -726,7 +726,7 @@
                             <path d="M632 512 L425 725" stroke="#F1F2F7" />
                         </g>
                     </svg>
-                    Agent Steer
+                    SteerLink
                 </a>
                 <div class="nav-links">
                     <a class="hide-sm" href="#how">How it works</a>
@@ -744,7 +744,7 @@
                     <span class="eyebrow">Plugin for Grok Bot &amp; Cursor · MCP ↔ ACP</span>
                     <h1>Let your bot delegate the coding.<br /><em>You approve every change.</em></h1>
                     <p class="lead">
-                        Agent Steer lets Grok Bot hand coding tasks to Claude Code — or any other ACP coding agent. Each
+                        SteerLink lets Grok Bot hand coding tasks to Claude Code — or any other ACP coding agent. Each
                         edit and command comes back to you as a question, with the diff, before anything happens.
                     </p>
                     <div class="cta">
@@ -771,8 +771,8 @@
                             <div class="msg user">
                                 Fix the failing date test in ~/projects/invoice and run the tests.
                             </div>
-                            <div class="tool">agent-steer__start_session · cwd ~/projects/invoice</div>
-                            <div class="tool">agent-steer__send_prompt · status awaiting_permission</div>
+                            <div class="tool">steerlink__start_session · cwd ~/projects/invoice</div>
+                            <div class="tool">steerlink__send_prompt · status awaiting_permission</div>
                             <div class="msg bot">
                                 Claude Code found the bug in <code>src/dates.ts</code> and wants to change one line.
                                 Shall I allow it?
@@ -788,7 +788,7 @@
                                     <span class="choice deny">Deny</span>
                                 </div>
                             </div>
-                            <div class="tool">agent-steer__respond_permission · allow</div>
+                            <div class="tool">steerlink__respond_permission · allow</div>
                             <div class="done">
                                 <span class="check">✓</span>
                                 <div class="msg bot">
@@ -951,7 +951,7 @@
                     </div>
                     <div class="arrow"><span>⇄</span>MCP · stdio</div>
                     <div class="node mid">
-                        <small>This plugin</small><strong>Agent Steer</strong>
+                        <small>This plugin</small><strong>SteerLink</strong>
                         <p>Sessions, permission queue, event buffer, secret-free auth status.</p>
                     </div>
                     <div class="arrow"><span>⇄</span>ACP · stdio</div>
@@ -1049,9 +1049,9 @@
                         <pre class="block">
 {
   "mcpServers": {
-    "agent-steer": {
+    "steerlink": {
       "command": "npx",
-      "args": ["-y", "agent-steer@0.1.0-rc.0"]
+      "args": ["-y", "steerlink@0.1.0-rc.0"]
     }
   }
 }</pre>
@@ -1181,7 +1181,7 @@ and run the tests."</pre>
                 <details>
                     <summary>Is it free?</summary>
                     <p>
-                        Yes. Agent Steer is open source under the MIT license. If it saves you time, you can
+                        Yes. SteerLink is open source under the MIT license. If it saves you time, you can
                         <a href="https://paypal.me/foxkilldev">support its development via PayPal</a>. Donations are
                         voluntary and do not buy access or Claude usage.
                     </p>
@@ -1192,7 +1192,7 @@ and run the tests."</pre>
         <footer>
             <div class="wrap">
                 <div>
-                    Agent Steer · MIT license ·
+                    SteerLink · MIT license ·
                     <a href="https://paypal.me/foxkilldev">Support development</a> ·
                     <a href="https://github.com/foxkill/grokbot-acp-connector">Source on GitHub</a>
                 </div>

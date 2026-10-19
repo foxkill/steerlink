@@ -2,7 +2,7 @@
 
 ## What the project is
 
-`agent-steer` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 22) that lets an MCP
+`steerlink` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 22) that lets an MCP
 host such as Grok Bot drive coding agents, the way Zed does as an ACP client. Upstream it speaks MCP; downstream it
 starts `@agentclientprotocol/claude-agent-acp` (or other ACP agents such as codex-acp) as a subprocess.
 
@@ -14,7 +14,7 @@ what still needs to be decided first is described in `docs/marketplace-submissio
 | Part | Files |
 |---|---|
 | Server | `src/` (MCP tools, sessions, permissions, auth rules) |
-| Plugin | `.cursor-plugin/plugin.json` (variable `ANTHROPIC_API_KEY`), `mcp.json` (`npx -y agent-steer@<version>`, `api_key` mode), `skills/delegate-to-coding-agent/SKILL.md`, `assets/logo.svg` |
+| Plugin | `.cursor-plugin/plugin.json` (variable `ANTHROPIC_API_KEY`), `mcp.json` (`npx -y steerlink@<version>`, `api_key` mode), `skills/delegate-to-coding-agent/SKILL.md`, `assets/logo.svg` |
 | Checks | `scripts/validate-plugin.ts`, `test/`, `test/e2e/`, `.github/workflows/ci.yml` |
 
 ## Plugin work status (2026-10-19)
