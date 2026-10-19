@@ -213,6 +213,7 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
     it("auth_status reports the identity without email", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "fake" });
         expect(status.data.agent_reported).toEqual({ kind: "account", label: "Fake Max", plan: "max" });
+        expect(status.data.note).toBeNull();
         expect(status.text).not.toContain("secret@example.com");
         expect(status.data.auth_methods.map((method) => method.id)).toEqual(["fake-login", "fake-agent-auth"]);
     });
@@ -243,5 +244,53 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
     it("rejects a relative cwd", async () => {
         const session = await client.call("start_session", { cwd: "relative/path" });
         expect(session.isError).toBe(true);
+    });
+});
+
+describe("auth_status with a subscription token", () => {
+    const client = new ConnectorClient();
+    let configDir: string;
+
+    beforeAll(async () => {
+        configDir = mkdtempSync(join(tmpdir(), "acp-connector-token-"));
+        const configPath = join(configDir, "config.json");
+        // A Claude-profile agent that, like claude-agent-acp before its first session, reports "Not logged in".
+        writeFileSync(
+            configPath,
+            JSON.stringify({
+                default_agent: "claude-like",
+                agent_servers: {
+                    "claude-like": {
+                        command: process.execPath,
+                        args: ["--import", "tsx", FAKE_AGENT_PATH],
+                        env: { FAKE_AUTH_KIND: "none" },
+                        auth_profile: "claude",
+                    },
+                },
+            }),
+        );
+        await client.connect(
+            {
+                ACP_CONNECTOR_CONFIG: configPath,
+                ACP_CONNECTOR_AUTH_MODE: "subscription",
+                CLAUDE_CODE_OAUTH_TOKEN: "test-oauth-token-not-real",
+            },
+            false,
+            true,
+        );
+    });
+
+    afterAll(async () => {
+        await client.close();
+        await rm(configDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+    });
+
+    it('explains the misleading pre-session "Not logged in" and never shows the token', async () => {
+        const status = await client.call<AuthStatusResult>("auth_status", {});
+        expect(status.data.problem).toBeNull();
+        expect(status.data.credentials.claude_code_oauth_token_set).toBe(true);
+        expect(status.data.agent_reported).toEqual({ kind: "none", label: "Not logged in" });
+        expect(status.data.note).toMatch(/pre-session check only sees a stored claude\.ai login/);
+        expect(status.text).not.toContain("test-oauth-token-not-real");
     });
 });

@@ -101,6 +101,8 @@ export interface AuthStatusResult {
     agent_reported: AgentReportedAuth | null;
     auth_methods: Array<{ id: string; name: string; type: string }>;
     problem: string | null;
+    /** Explanation for a reported state that looks wrong but is expected; null if there is nothing to explain. */
+    note: string | null;
 }
 
 const MAX_EVENTS = 2000;
@@ -542,7 +544,34 @@ export class SessionManager implements AgentEventSink {
                 describeAuthMethod(method),
             ),
             problem,
+            note: this.authNote(isClaude, credentials, reported),
         };
+    }
+
+    /**
+     * claude-agent-acp reports its identity before the first session from
+     * `claude auth status`, whose `loggedIn` only reflects a stored claude.ai
+     * login. With CLAUDE_CODE_OAUTH_TOKEN it therefore says "Not logged in"
+     * although requests are authenticated; the report updates once a session runs.
+     */
+    private authNote(
+        isClaude: boolean,
+        credentials: CredentialPresence,
+        reported: AgentReportedAuth | undefined,
+    ): string | null {
+        if (
+            isClaude &&
+            this.config.auth_mode === "subscription" &&
+            credentials.claude_code_oauth_token_set &&
+            reported?.kind === "none"
+        ) {
+            return (
+                'The agent reports "Not logged in" because its pre-session check only sees a stored claude.ai ' +
+                "login, not CLAUDE_CODE_OAUTH_TOKEN. Sign-in works when problem is null; the report updates after " +
+                "the first session starts."
+            );
+        }
+        return null;
     }
 
     async authenticate(params: {

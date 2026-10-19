@@ -54,9 +54,11 @@ Each entry in `pending_permissions` has a `permission_id`, a `title`, the tool `
 `input`, the `diffs` and the `options`.
 
 - **Ask the user, do not decide yourself.** Present the request as a question with
-  choices: what the agent wants to do (`title`), the diff or command, and the options
-  *Allow once*, *Always allow*, *Deny*. Then call `respond_permission` with the user's
-  choice.
+  choices: what the agent wants to do (`title`), the file path, the diff or command, and the
+  options *Allow once*, *Always allow*, *Deny*. Then call `respond_permission` with the
+  user's choice.
+- Keep internal identifiers (`session_id`, `permission_id`, `tool_call_id`) out of what you
+  show the user unless they ask for them.
 - Use `allow_always` or `deny_always` only when the user picked it.
 - Answer automatically only when the user explicitly granted that for this session
   (for example "approve all edits in this session"), and even then never for deleting

@@ -143,11 +143,10 @@ agent({ name: "fake-agent" })
         // email address that the connector has to filter out.
         setTimeout(() => {
             void context.client.notify("_auth/status_update", {
-                authStatus: {
-                    kind: "account",
-                    label: "Fake Max",
-                    account: { plan: "max", email: "secret@example.com" },
-                },
+                authStatus:
+                    process.env.FAKE_AUTH_KIND === "none"
+                        ? { kind: "none", label: "Not logged in" }
+                        : { kind: "account", label: "Fake Max", account: { plan: "max", email: "secret@example.com" } },
             });
         }, 10);
         return {
