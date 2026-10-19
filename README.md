@@ -1,12 +1,12 @@
-# ACP Agent Bridge
+# Agent Steer
 
-Steer and remote-control **Claude Code** from **Grok Bot**. ACP Agent Bridge is an MCP server that lets an MCP host
+Steer and remote-control **Claude Code** from **Grok Bot**. Agent Steer is an MCP server that lets an MCP host
 such as Grok Bot or Cursor delegate coding work to [ACP](https://agentclientprotocol.com) coding agents — Claude Code
 by default, plus any other ACP agent such as Codex. The host starts a session in a project, sends a task, and approves
 or denies every change the agent wants to make, with the diff in front of it.
 
 ```
-MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ acp-agent-bridge ──ACP/stdio──▶ claude-agent-acp (Claude Code)
+MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ agent-steer ──ACP/stdio──▶ claude-agent-acp (Claude Code)
                                                                └─ACP/stdio──▶ other ACP agents (e.g. codex-acp)
 ```
 
@@ -26,7 +26,7 @@ The repository is a plugin in the Cursor plugin format, which Grok Bot uses as w
 | File | Content |
 |---|---|
 | `.cursor-plugin/plugin.json` | Manifest, declares the variable `ANTHROPIC_API_KEY` |
-| `mcp.json` | Starts the server with `npx -y acp-agent-bridge@<version>` |
+| `mcp.json` | Starts the server with `npx -y agent-steer@<version>` |
 | `skills/delegate-to-coding-agent/SKILL.md` | Tells the host's agent how to use the tools and to ask you before every change |
 
 After installing the plugin, set **`ANTHROPIC_API_KEY`** in the plugin settings to your own key from the
@@ -44,9 +44,9 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 22
 ```json
 {
   "mcpServers": {
-    "acp-agents": {
+    "agent-steer": {
       "command": "npx",
-      "args": ["-y", "acp-agent-bridge@0.1.0"],
+      "args": ["-y", "agent-steer@0.1.0-rc.0"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -140,6 +140,10 @@ Tooling: TypeScript 7 with the strictest compiler options (`noUncheckedIndexedAc
 `tsconfig.json` covers the whole project for the editor, the type checker and the linter; `tsconfig.build.json` builds
 only `src/`. External JSON (config file, `package.json`) is validated with zod instead of type assertions.
 
+Before submitting to a marketplace, test locally and in-app as described in
+[docs/testing-in-grok-bot.md](docs/testing-in-grok-bot.md) (`npm run plugin:local` for Cursor, a `next` prerelease for
+Grok Bot).
+
 `npm test` runs offline against a fake ACP agent and costs nothing. `npm run validate:plugin` checks the plugin
 against Cursor's submission checklist and against this repository (pinned version in `mcp.json` = `package.json`,
 declared variables, logo, skills, no secrets).
@@ -158,6 +162,12 @@ scripts/validate-plugin.ts      plugin validator
 test/                           tests (fake ACP agent in test/fixtures)
 test/e2e/                       package and smoke tests
 ```
+
+## Support
+
+Agent Steer is free and open source. If it saves you time, you can support its development with a donation via
+[PayPal](https://paypal.me/foxkilldev). Donations are voluntary; they do not buy access, support guarantees or Claude
+usage.
 
 ## License
 

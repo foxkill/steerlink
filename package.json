@@ -1,7 +1,6 @@
 {
-    "name": "acp-agent-bridge",
-    "version": "0.1.0",
-    "private": true,
+    "name": "agent-steer",
+    "version": "0.1.0-rc.0",
     "description": "MCP server that lets Grok Bot and other MCP hosts steer and remote-control Claude Code, Codex and other ACP coding agents, with approval of every change",
     "keywords": [
         "acp",
@@ -36,8 +35,12 @@
         "type": "git",
         "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"
     },
+    "funding": {
+        "type": "individual",
+        "url": "https://paypal.me/foxkilldev"
+    },
     "bin": {
-        "acp-agent-bridge": "dist/main.js"
+        "agent-steer": "dist/main.js"
     },
     "files": [
         "dist/**/*.js"

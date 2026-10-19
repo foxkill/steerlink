@@ -464,7 +464,7 @@ describe("validator helpers", () => {
     });
 
     it("parsePackageSpec understands scopes", () => {
-        expect(parsePackageSpec("acp-agent-bridge@0.1.0")).toEqual({ name: "acp-agent-bridge", version: "0.1.0" });
+        expect(parsePackageSpec("agent-steer@0.1.0-rc.0")).toEqual({ name: "agent-steer", version: "0.1.0-rc.0" });
         expect(parsePackageSpec("@scope/pkg@1.0.0")).toEqual({ name: "@scope/pkg", version: "1.0.0" });
         expect(parsePackageSpec("@scope/pkg")).toEqual({ name: "@scope/pkg", version: undefined });
         expect(parsePackageSpec("pkg")).toEqual({ name: "pkg", version: undefined });

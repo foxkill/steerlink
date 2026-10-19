@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
-  <title id="title">ACP Agent Bridge</title>
+  <title id="title">Agent Steer</title>
   <rect width="512" height="512" rx="112" fill="#14213D"/>
   <g fill="none" stroke-linecap="round" transform="translate(0 -48)">
     <path d="M112 340 Q 256 120 400 340" stroke="#FCA311" stroke-width="32"/>

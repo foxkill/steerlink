@@ -1,8 +1,8 @@
 {
     "mcpServers": {
-        "acp-agents": {
+        "agent-steer": {
             "command": "npx",
-            "args": ["-y", "acp-agent-bridge@0.1.0"],
+            "args": ["-y", "agent-steer@0.1.0-rc.0"],
             "env": {
                 "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
                 "ACP_CONNECTOR_AUTH_MODE": "api_key"

@@ -2,7 +2,7 @@
 
 ## What the project is
 
-`acp-agent-bridge` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 22) that lets an MCP
+`agent-steer` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 22) that lets an MCP
 host such as Grok Bot drive coding agents, the way Zed does as an ACP client. Upstream it speaks MCP; downstream it
 starts `@agentclientprotocol/claude-agent-acp` (or other ACP agents such as codex-acp) as a subprocess.
 
@@ -14,7 +14,7 @@ what still needs to be decided first is described in `docs/marketplace-submissio
 | Part | Files |
 |---|---|
 | Server | `src/` (MCP tools, sessions, permissions, auth rules) |
-| Plugin | `.cursor-plugin/plugin.json` (variable `ANTHROPIC_API_KEY`), `mcp.json` (`npx -y acp-agent-bridge@<version>`, `api_key` mode), `skills/delegate-to-coding-agent/SKILL.md`, `assets/logo.svg` |
+| Plugin | `.cursor-plugin/plugin.json` (variable `ANTHROPIC_API_KEY`), `mcp.json` (`npx -y agent-steer@<version>`, `api_key` mode), `skills/delegate-to-coding-agent/SKILL.md`, `assets/logo.svg` |
 | Checks | `scripts/validate-plugin.ts`, `test/`, `test/e2e/`, `.github/workflows/ci.yml` |
 
 ## Plugin work status (2026-10-19)
@@ -62,7 +62,7 @@ write. Now only the variables that a surrounding session sets itself are removed
 
 ## Open items
 
-- Final name, npm release, public repo, donation links: decisions for the owner (see
+- npm release (prerelease `0.1.0-rc.0` ready), public repo, Ko-fi later: next steps for the owner (see
   `docs/marketplace-submission.md`).
 - The first start downloads about 300 MB (the Agent SDK's native Claude Code binary); short host start timeouts can
   abort the first start.

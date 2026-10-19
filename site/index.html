@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>ACP Agent Bridge – steer Claude Code from Grok Bot</title>
+        <title>Agent Steer – control Claude Code from Grok Bot</title>
         <meta
             name="description"
             content="Steer and remote-control Claude Code from Grok Bot: delegate coding tasks, review every diff, and approve or deny each change. Works with Codex and other ACP coding agents too."
@@ -12,7 +12,7 @@
             name="keywords"
             content="claude code, steer claude code, control claude code, remote control claude code, claude code steuern, grok bot, codex, coding agent, mcp, acp"
         />
-        <meta property="og:title" content="ACP Agent Bridge" />
+        <meta property="og:title" content="Agent Steer" />
         <meta
             property="og:description"
             content="Steer and remote-control Claude Code from Grok Bot: delegate coding tasks, review every diff, and approve or deny each change. Works with Codex and other ACP coding agents too."
@@ -715,7 +715,7 @@
     <body>
         <nav>
             <div class="wrap">
-                <a class="brand" href="#top" aria-label="ACP Agent Bridge home">
+                <a class="brand" href="#top" aria-label="Agent Steer home">
                     <svg viewBox="0 0 512 512" aria-hidden="true">
                         <rect width="512" height="512" rx="112" fill="#14213D" />
                         <g fill="none" stroke-linecap="round" transform="translate(0 -48)">
@@ -725,7 +725,7 @@
                             <path d="M112 340 V 404 M400 340 V 404" stroke="#E5E5E5" stroke-width="28" />
                         </g>
                     </svg>
-                    ACP Agent Bridge
+                    Agent Steer
                 </a>
                 <div class="nav-links">
                     <a class="hide-sm" href="#how">How it works</a>
@@ -743,8 +743,8 @@
                     <span class="eyebrow">Plugin for Grok Bot &amp; Cursor · MCP ↔ ACP</span>
                     <h1>Let your bot delegate the coding.<br /><em>You approve every change.</em></h1>
                     <p class="lead">
-                        ACP Agent Bridge lets Grok Bot hand coding tasks to Claude Code — or any other ACP coding agent.
-                        Each edit and command comes back to you as a question, with the diff, before anything happens.
+                        Agent Steer lets Grok Bot hand coding tasks to Claude Code — or any other ACP coding agent. Each
+                        edit and command comes back to you as a question, with the diff, before anything happens.
                     </p>
                     <div class="cta">
                         <a class="btn primary" href="#setup">Get started</a>
@@ -770,8 +770,8 @@
                             <div class="msg user">
                                 Fix the failing date test in ~/projects/invoice and run the tests.
                             </div>
-                            <div class="tool">acp-agents__start_session · cwd ~/projects/invoice</div>
-                            <div class="tool">acp-agents__send_prompt · status awaiting_permission</div>
+                            <div class="tool">agent-steer__start_session · cwd ~/projects/invoice</div>
+                            <div class="tool">agent-steer__send_prompt · status awaiting_permission</div>
                             <div class="msg bot">
                                 Claude Code found the bug in <code>src/dates.ts</code> and wants to change one line.
                                 Shall I allow it?
@@ -787,7 +787,7 @@
                                     <span class="choice deny">Deny</span>
                                 </div>
                             </div>
-                            <div class="tool">acp-agents__respond_permission · allow</div>
+                            <div class="tool">agent-steer__respond_permission · allow</div>
                             <div class="done">
                                 <span class="check">✓</span>
                                 <div class="msg bot">
@@ -950,7 +950,7 @@
                     </div>
                     <div class="arrow"><span>⇄</span>MCP · stdio</div>
                     <div class="node mid">
-                        <small>This plugin</small><strong>ACP Agent Bridge</strong>
+                        <small>This plugin</small><strong>Agent Steer</strong>
                         <p>Sessions, permission queue, event buffer, secret-free auth status.</p>
                     </div>
                     <div class="arrow"><span>⇄</span>ACP · stdio</div>
@@ -1048,9 +1048,9 @@
                         <pre class="block">
 {
   "mcpServers": {
-    "acp-agents": {
+    "agent-steer": {
       "command": "npx",
-      "args": ["-y", "acp-agent-bridge@0.1.0"]
+      "args": ["-y", "agent-steer@0.1.0-rc.0"]
     }
   }
 }</pre>
@@ -1177,13 +1177,22 @@ and run the tests."</pre>
                         terms apply.
                     </p>
                 </details>
+                <details>
+                    <summary>Is it free?</summary>
+                    <p>
+                        Yes. Agent Steer is open source under the MIT license. If it saves you time, you can
+                        <a href="https://paypal.me/foxkilldev">support its development via PayPal</a>. Donations are
+                        voluntary and do not buy access or Claude usage.
+                    </p>
+                </details>
             </div>
         </section>
 
         <footer>
             <div class="wrap">
                 <div>
-                    ACP Agent Bridge · MIT license ·
+                    Agent Steer · MIT license ·
+                    <a href="https://paypal.me/foxkilldev">Support development</a> ·
                     <a href="https://github.com/foxkill/grokbot-acp-connector">Source on GitHub</a>
                 </div>
                 <div>

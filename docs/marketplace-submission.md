@@ -3,21 +3,19 @@
 Form: <https://x.ai/bot/marketplace/submit-a-plugin>. Destinations there: Grok Bot and/or Cursor (same plugin
 format). Reference for format and checklist: <https://cursor.com/docs/reference/plugins>.
 
-## Before submitting: open decisions
-
-These items are deliberately left undecided because they have legal or business consequences:
+## Before submitting: decisions and steps
 
 | Item | Status | What to do |
 |---|---|---|
 | License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
-| Name | Working name `acp-agent-bridge` (npm name available on 2026-10-19) | Confirm or change: `package.json`, `plugin.json`, `mcp.json`, README. No "Claude", "Anthropic", "Grok" or "xAI" in the product name. |
-| npm release | `"private": true` prevents accidental publishing | Remove `private`, `npm login`, `npm publish`. `prepublishOnly` runs `check` and `test:package` first. |
+| Name | Decided: `agent-steer` / "Agent Steer" (npm name was available on 2026-10-19) | — |
+| npm release | Ready: `0.1.0-rc.0`, no longer `private` | Publish the prerelease with `npm publish --tag next` for testing; after the in-app test bump to `0.1.0` (package.json, plugin.json, mcp.json, README) and `npm publish`. `prepublishOnly` runs `check` and `test:package` first. |
 | Repo | `foxkill/grokbot-acp-connector` | Make it public; rename if needed (then update `homepage`, `repository`, `bugs`). |
 | Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
-| Donations | not set up | Optional: `"funding"` in `package.json`, `.github/FUNDING.yml`, link in the README (Buy Me a Coffee, GitHub Sponsors). |
+| Donations | PayPal: `paypal.me/foxkilldev` (`.github/FUNDING.yml`, `package.json` `funding`, README, product page) | Later: Ko-fi or GitHub Sponsors as one more line in `FUNDING.yml`. |
 
-Then: `npm run check && npm run test:package`, tag the version, install the plugin locally in Grok Bot and run
-through it once end to end (see the testing instructions).
+Then test locally and in-app as described in [testing-in-grok-bot.md](testing-in-grok-bot.md) — the form requires
+confirming both.
 
 ## Form fields
 
@@ -41,11 +39,11 @@ through it once end to end (see the testing instructions).
 > 1. Install the plugin and set the plugin variable `ANTHROPIC_API_KEY` to an Anthropic API key
 >    (platform.claude.com). The first start downloads about 300 MB (the native Claude Code binary from Anthropic's
 >    Agent SDK); if the first start times out, retry once the download has finished.
-> 2. Ask Grok Bot: "Call auth_status of acp-agents." Expect `problem: null` and `auth_mode: api_key`.
-> 3. Ask: "Create a folder /tmp/acp-demo and let Claude Code create hello.txt with the content hi."
+> 2. Ask Grok Bot: "Call auth_status of agent-steer." Expect `problem: null` and `auth_mode: api_key`.
+> 3. Ask: "Create a folder /tmp/agent-steer-demo and let Claude Code create hello.txt with the content hi."
 >    Grok Bot calls `start_session` and `send_prompt`; the agent requests permission to write `hello.txt`.
 > 4. Grok Bot shows the request with its diff and asks you. Approve it. Expect status `idle` and the file
->    `/tmp/acp-demo/hello.txt` containing `hi`.
+>    `/tmp/agent-steer-demo/hello.txt` containing `hi`.
 > 5. Repeat with a second file and deny the request. Expect that the file is not created.
 > 6. Without the variable set, `auth_status` reports that `ANTHROPIC_API_KEY` must be entered in the plugin
 >    settings, and `start_session` fails with the same message.
