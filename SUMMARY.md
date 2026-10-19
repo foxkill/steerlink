@@ -63,7 +63,7 @@ write. Now only the variables that a surrounding session sets itself are removed
 
 ## Open items
 
-- npm release (prerelease `0.1.0-rc.0` ready), public repo, Ko-fi later: next steps for the owner (see
+- npm release (`0.1.0-rc.0` published and tested in Grok Bot, `0.1.0` ready), public repo, Ko-fi later: next steps for the owner (see
   `docs/marketplace-submission.md`).
 - The first start downloads about 300 MB (the Agent SDK's native Claude Code binary); short host start timeouts can
   abort the first start.
