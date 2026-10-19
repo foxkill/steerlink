@@ -1,10 +1,9 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const root = join(import.meta.dirname, "..", "..");
 
 export const REPO_ROOT = root;
 export const FAKE_AGENT_PATH = join(root, "test", "fixtures", "fake-agent.ts");

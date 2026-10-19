@@ -184,10 +184,10 @@ agent({ name: "fake-agent" })
         }
         session.abort = new AbortController();
         const block = context.params.prompt[0];
-        const text = block && block.type === "text" ? block.text : "";
-        const write = /^write (\S+) (.+)$/.exec(text);
-        if (write) {
-            return writeTurn(context.client, context.params.sessionId, session, write[1], write[2]);
+        const text = block?.type === "text" ? block.text : "";
+        const [, path, content] = /^write (\S+) (.+)$/.exec(text) ?? [];
+        if (path !== undefined && content !== undefined) {
+            return writeTurn(context.client, context.params.sessionId, session, path, content);
         }
         if (text === "slow") {
             return slowTurn(context.client, context.params.sessionId, session.abort.signal);

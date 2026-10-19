@@ -34,7 +34,9 @@ describe("readEnv / isUnexpandedPlaceholder", () => {
 
 describe("loadConnectorConfig", () => {
     const dir = mkdtempSync(join(tmpdir(), "acp-config-test-"));
-    afterAll(() => rmSync(dir, { recursive: true, force: true }));
+    afterAll(() => {
+        rmSync(dir, { recursive: true, force: true });
+    });
 
     it("Default: nur claude, api_key", () => {
         const config = loadConnectorConfig({});
@@ -90,15 +92,43 @@ describe("loadConnectorConfig", () => {
     });
 
     it.each([
-        [{ agent_servers: { x: { type: "stdio", command: "c" } } }, /type/],
-        [{ agent_servers: { x: {} } }, /command fehlt/],
-        [{ agent_servers: { x: { command: "c", args: [1] } } }, /args/],
-        [{ agent_servers: { x: { command: "c", env: { A: 1 } } } }, /env\.A/],
-        [{ agent_servers: { x: { command: "c", auth_profile: "openai" } } }, /auth_profile/],
-    ])("lehnt ungültige agent_servers ab: %j", (raw, message) => {
+        [
+            { agent_servers: { x: { type: "stdio", command: "c" } } },
+            'agent_servers.x.type: nur "custom" wird unterstützt',
+        ],
+        [{ agent_servers: { x: {} } }, "agent_servers.x.command: fehlt"],
+        [{ agent_servers: { x: { command: "" } } }, "agent_servers.x.command: fehlt"],
+        [{ agent_servers: { x: { command: "c", args: [1] } } }, "agent_servers.x.args.0:"],
+        [{ agent_servers: { x: { command: "c", env: { A: 1 } } } }, "agent_servers.x.env.A: muss ein String sein"],
+        [
+            { agent_servers: { x: { command: "c", auth_profile: "openai" } } },
+            'agent_servers.x.auth_profile: muss "claude" oder "none" sein',
+        ],
+        [{ auth_mode: "abo" }, 'auth_mode: auth_mode muss "api_key" oder "subscription" sein'],
+    ])("lehnt ungültige Konfiguration mit genauem Pfad ab: %j", (raw, message) => {
         const path = join(dir, "invalid.json");
         writeFileSync(path, JSON.stringify(raw));
         expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path })).toThrow(message);
+    });
+
+    it("meldet kaputtes JSON und fehlende Dateien mit Pfad", () => {
+        const path = join(dir, "broken.json");
+        writeFileSync(path, "{ kein json");
+        expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path })).toThrow(
+            /broken\.json ist nicht lesbar oder kein JSON/,
+        );
+        expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: join(dir, "fehlt.json") })).toThrow(
+            /fehlt\.json ist nicht lesbar/,
+        );
+    });
+
+    it("unbekannte Felder in der Datei werden ignoriert", () => {
+        const path = join(dir, "extra.json");
+        writeFileSync(
+            path,
+            JSON.stringify({ kommentar: "x", agent_servers: { codex: { command: "codex-acp", note: "y" } } }),
+        );
+        expect(loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path }).agent_servers.codex?.command).toBe("codex-acp");
     });
 });
 

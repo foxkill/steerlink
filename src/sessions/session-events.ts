@@ -17,7 +17,7 @@ export interface ToolCallSummary {
     status: string;
     locations: string[];
     diffs: DiffSummary[];
-    output?: string;
+    output?: string | undefined;
 }
 
 export interface PermissionOptionSummary {
@@ -32,7 +32,7 @@ export interface PendingPermissionSummary {
     tool_call_id: string;
     title: string;
     kind: string;
-    input?: string;
+    input?: string | undefined;
     diffs: DiffSummary[];
     options: PermissionOptionSummary[];
 }

@@ -13,7 +13,7 @@ import {
 
 import { AgentProcess, type AgentEventSink, type AgentReportedAuth } from "../acp/agent-process.js";
 import { buildAgentLaunch, describeCredentials, type CredentialPresence } from "../auth/agent-launch.js";
-import type { ConnectorConfig } from "../config/connector-config.js";
+import type { AgentServerConfig, ConnectorConfig } from "../config/connector-config.js";
 import {
     stringifyInput,
     summarizeDiffs,
@@ -87,7 +87,7 @@ export interface AgentInfo {
     env_keys: string[];
     auth_profile: string;
     running: boolean;
-    agent_info: { name: string; title?: string | null; version: string } | null;
+    agent_info: { name: string; title?: string | null | undefined; version: string } | null;
     auth_methods: Array<{ id: string; name: string; type: string }>;
 }
 
@@ -105,12 +105,18 @@ export interface AuthStatusResult {
 
 const MAX_EVENTS = 2000;
 
+type TerminalAuthMethod = Extract<AuthMethod, { type: "terminal" }>;
+
+/**
+ * Laut Schema tragen nur Terminal-Methoden ein `type`. Auf dem Draht kann ein
+ * Agent aber auch andere Werte schicken; deshalb zählt allein `"terminal"`.
+ */
+function isTerminalMethod(method: AuthMethod): method is TerminalAuthMethod {
+    return Reflect.get(method, "type") === "terminal";
+}
+
 function describeAuthMethod(method: AuthMethod): { id: string; name: string; type: string } {
-    return {
-        id: method.id,
-        name: method.name,
-        type: "type" in method && method.type === "terminal" ? "terminal" : "agent",
-    };
+    return { id: method.id, name: method.name, type: isTerminalMethod(method) ? "terminal" : "agent" };
 }
 
 export class SessionManager implements AgentEventSink {
@@ -142,19 +148,24 @@ export class SessionManager implements AgentEventSink {
                 agent_info: init?.agentInfo
                     ? { name: init.agentInfo.name, title: init.agentInfo.title, version: init.agentInfo.version }
                     : null,
-                auth_methods: (init?.authMethods ?? []).map(describeAuthMethod),
+                auth_methods: (init?.authMethods ?? []).map((method) => describeAuthMethod(method)),
             };
         });
     }
 
-    private resolveAgentName(agent: string | undefined): string {
+    private resolveAgent(agent: string | undefined): { name: string; server: AgentServerConfig } {
         const name = agent ?? this.config.default_agent;
-        if (!this.config.agent_servers[name]) {
+        const server = this.config.agent_servers[name];
+        if (!server) {
             throw new Error(
                 `Unbekannter Agent "${name}". Verfügbar: ${Object.keys(this.config.agent_servers).join(", ")}`,
             );
         }
-        return name;
+        return { name, server };
+    }
+
+    private resolveAgentName(agent: string | undefined): string {
+        return this.resolveAgent(agent).name;
     }
 
     private async ensureAgent(name: string): Promise<AgentProcess> {
@@ -167,7 +178,7 @@ export class SessionManager implements AgentEventSink {
             return pending;
         }
         const startPromise = (async (): Promise<AgentProcess> => {
-            const server = this.config.agent_servers[name];
+            const { server } = this.resolveAgent(name);
             const launch = buildAgentLaunch(server, this.config.auth_mode);
             const agentProcess = new AgentProcess(name, launch, this, this.debug);
             try {
@@ -175,7 +186,9 @@ export class SessionManager implements AgentEventSink {
             } catch (error) {
                 await agentProcess.stop();
                 const tail = agentProcess.stderrTail.slice(-5).join("\n");
-                throw new Error(`${error instanceof Error ? error.message : String(error)}${tail ? `\n${tail}` : ""}`);
+                throw new Error(`${error instanceof Error ? error.message : String(error)}${tail ? `\n${tail}` : ""}`, {
+                    cause: error,
+                });
             }
             this.agents.set(name, agentProcess);
             return agentProcess;
@@ -207,7 +220,7 @@ export class SessionManager implements AgentEventSink {
 
     // -------------------------------------------------------------- Sessions
 
-    async startSession(params: { cwd: string; agent?: string; mode?: string }): Promise<{
+    async startSession(params: { cwd: string; agent?: string | undefined; mode?: string | undefined }): Promise<{
         session_id: string;
         agent: string;
         cwd: string;
@@ -314,22 +327,8 @@ export class SessionManager implements AgentEventSink {
         const turn: Turn = { number: session.turnCount, text: "", toolCallIds: [], finished: false };
         session.turn = turn;
 
-        agentProcess.agent
-            .request(methods.agent.session.prompt, {
-                sessionId: session.id,
-                prompt: [{ type: "text", text: params.text }],
-            })
-            .then((response) => {
-                // Erst abschließen, dann melden: wer turn_end sieht, sieht auch status=idle.
-                turn.stopReason = response.stopReason;
-                turn.finished = true;
-                this.pushEvent(session, { seq: 0, type: "turn_end", stop_reason: response.stopReason });
-            })
-            .catch((error: unknown) => {
-                turn.error = error instanceof Error ? error.message : JSON.stringify(error);
-                turn.finished = true;
-                this.pushEvent(session, { seq: 0, type: "error", message: turn.error });
-            });
+        // Läuft bewusst im Hintergrund weiter; Ergebnis und Fehler landen im Ereignis-Puffer.
+        void this.runTurn(agentProcess, session, turn, params.text);
 
         if (params.wait) {
             await this.waitFor(session, () => this.status(session) !== "running", params.timeout_seconds * 1000);
@@ -337,6 +336,23 @@ export class SessionManager implements AgentEventSink {
             session.cursor = this.seqCounter;
         }
         return this.turnResult(session);
+    }
+
+    private async runTurn(agentProcess: AgentProcess, session: SessionState, turn: Turn, text: string): Promise<void> {
+        try {
+            const response = await agentProcess.agent.request(methods.agent.session.prompt, {
+                sessionId: session.id,
+                prompt: [{ type: "text", text }],
+            });
+            // Erst abschließen, dann melden: wer turn_end sieht, sieht auch status=idle.
+            turn.stopReason = response.stopReason;
+            turn.finished = true;
+            this.pushEvent(session, { seq: 0, type: "turn_end", stop_reason: response.stopReason });
+        } catch (error) {
+            turn.error = error instanceof Error ? error.message : JSON.stringify(error);
+            turn.finished = true;
+            this.pushEvent(session, { seq: 0, type: "error", message: turn.error });
+        }
     }
 
     async getUpdates(params: {
@@ -369,7 +385,11 @@ export class SessionManager implements AgentEventSink {
         );
     }
 
-    respondPermission(params: { permission_id: string; decision?: PermissionDecision; option_id?: string }): {
+    respondPermission(params: {
+        permission_id: string;
+        decision?: PermissionDecision | undefined;
+        option_id?: string | undefined;
+    }): {
         permission_id: string;
         selected_option: { option_id: string; name: string; kind: string };
         session_status: SessionStatus;
@@ -474,9 +494,12 @@ export class SessionManager implements AgentEventSink {
 
     // ------------------------------------------------------------------ Auth
 
-    async authStatus(params: { agent?: string; probe: boolean; restart_agent: boolean }): Promise<AuthStatusResult> {
-        const name = this.resolveAgentName(params.agent);
-        const server = this.config.agent_servers[name];
+    async authStatus(params: {
+        agent?: string | undefined;
+        probe: boolean;
+        restart_agent: boolean;
+    }): Promise<AuthStatusResult> {
+        const { name, server } = this.resolveAgent(params.agent);
         const credentials = describeCredentials(server);
         const isClaude = server.auth_profile === "claude";
         let problem: string | null = null;
@@ -517,17 +540,18 @@ export class SessionManager implements AgentEventSink {
             effective_method: effective,
             hide_claude_auth: isClaude && this.config.auth_mode === "api_key",
             agent_reported: reported ?? null,
-            auth_methods: (agentProcess?.initializeResponse?.authMethods ?? []).map(describeAuthMethod),
+            auth_methods: (agentProcess?.initializeResponse?.authMethods ?? []).map((method) =>
+                describeAuthMethod(method),
+            ),
             problem,
         };
     }
 
     async authenticate(params: {
-        agent?: string;
+        agent?: string | undefined;
         method_id: string;
     }): Promise<{ agent: string; method_id: string; result: string; command?: string }> {
-        const name = this.resolveAgentName(params.agent);
-        const server = this.config.agent_servers[name];
+        const { name, server } = this.resolveAgent(params.agent);
         const agentProcess = await this.ensureAgent(name);
         const method = (agentProcess.initializeResponse?.authMethods ?? []).find(
             (candidate) => candidate.id === params.method_id,
@@ -538,7 +562,7 @@ export class SessionManager implements AgentEventSink {
                 `Auth-Methode "${params.method_id}" wird nicht angeboten. Verfügbar: ${available.join(", ") || "keine"}`,
             );
         }
-        if ("type" in method && method.type === "terminal") {
+        if (isTerminalMethod(method)) {
             // Laut ACP darf der Client für Terminal-Methoden kein `authenticate`
             // senden, sondern muss den Agent interaktiv starten. Das kann ein
             // MCP-Server nicht; deshalb gibt der Connector nur die Anleitung aus.
@@ -640,9 +664,30 @@ export class SessionManager implements AgentEventSink {
                 }
                 this.pushEvent(session, { seq: 0, type: "mode", mode_id: update.currentModeId });
                 break;
-            default:
-                // usage_update, available_commands_update usw. sind für Grok Bot Rauschen.
+            case "user_message_chunk":
+            case "available_commands_update":
+            case "config_option_update":
+            case "session_info_update":
+            case "usage_update":
+            case "notice":
+            case "plan_update":
+            case "plan_removed":
+            case "compaction_update":
+            case "compaction_summary_chunk":
+            case "subagent_update":
+            case "session_message":
+            case "session_message_chunk":
+                // Für den MCP-Host Rauschen: Eingabe-Echo, Befehlslisten, Nutzungszahlen,
+                // Metadaten und Varianten, die der Connector (noch) nicht zusammenfasst.
                 break;
+            default: {
+                // Kommt mit einer neuen SDK-Version ein Update-Typ hinzu, schlägt das hier
+                // beim Kompilieren fehl und erinnert daran, ihn bewusst einzuordnen. Zur
+                // Laufzeit werden unbekannte Typen eines neueren Agents ignoriert.
+                const unhandled: never = update;
+                void unhandled;
+                break;
+            }
         }
     }
 
@@ -739,8 +784,8 @@ export class SessionManager implements AgentEventSink {
     }
 
     private appendText(session: SessionState, type: "message" | "thought", text: string): void {
-        const last = session.events[session.events.length - 1];
-        if (last && last.type === type && last.seq > session.cursor) {
+        const last = session.events.at(-1);
+        if (last?.type === type && last.seq > session.cursor) {
             last.text += text;
             this.notify(session);
             return;
@@ -750,10 +795,9 @@ export class SessionManager implements AgentEventSink {
 
     private upsertToolCallEvent(session: SessionState, summary: ToolCallSummary): void {
         const snapshot: ToolCallSummary = { ...summary, locations: [...summary.locations], diffs: [...summary.diffs] };
-        const last = session.events[session.events.length - 1];
+        const last = session.events.at(-1);
         if (
-            last &&
-            last.type === "tool_call" &&
+            last?.type === "tool_call" &&
             last.tool_call.tool_call_id === summary.tool_call_id &&
             last.seq > session.cursor
         ) {
@@ -777,7 +821,9 @@ export class SessionManager implements AgentEventSink {
     private notify(session: SessionState): void {
         const waiters = session.waiters;
         session.waiters = [];
-        waiters.forEach((waiter) => waiter());
+        waiters.forEach((waiter) => {
+            waiter();
+        });
     }
 
     private async waitFor(session: SessionState, condition: () => boolean, timeoutMs: number): Promise<void> {

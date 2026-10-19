@@ -1,20 +1,48 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { isSafeRelativePath, parseFrontmatter, parsePackageSpec, validatePlugin } from "../scripts/validate-plugin.js";
 import type { AuthStatusResult } from "../src/sessions/session-manager.js";
 import { ConnectorClient } from "./helpers/connector-client.js";
+import { defined } from "./helpers/defined.js";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = join(import.meta.dirname, "..");
 
 type Files = Record<string, string | object>;
 
 const LOGO =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#000"/><circle cx="32" cy="32" r="8" fill="#fff"/></svg>';
+
+function manifestWith(changes: Record<string, unknown>): object {
+    return { ...(validPlugin()[".cursor-plugin/plugin.json"] as object), ...changes };
+}
+
+function mcpWith(server: Record<string, unknown>): object {
+    return { mcpServers: { demo: server } };
+}
+
+/** Kleinste Version, die eine Range zulässt (über alle `||`-Alternativen), als Zahl zum Vergleichen. */
+function minVersion(range: string): number {
+    return Math.min(
+        ...range.split("||").map((alternative) => {
+            // Fehlende Teile (z. B. bei ">=22") zählen als 0.
+            const [, major = "0", minor = "0", patch = "0"] = /(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(alternative) ?? [];
+            return Number(major) * 1e6 + Number(minor) * 1e3 + Number(patch);
+        }),
+    );
+}
+
+/** Toolnamen aus der Markdown-Tabelle `| \`tool\` | … |` eines Skills. */
+function toolsInSkillTable(markdown: string): string[] {
+    return [...markdown.matchAll(/^\| `([a-z_]+)` \|/gm)].flatMap(([, name]) => (name === undefined ? [] : [name]));
+}
+
+function byCodePoint(a: string, b: string): number {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
 
 /** Ein minimales, gültiges Plugin; Tests überschreiben einzelne Dateien. */
 function validPlugin(): Files {
@@ -44,7 +72,11 @@ function validPlugin(): Files {
 
 describe("validatePlugin", () => {
     const dirs: string[] = [];
-    afterAll(() => dirs.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+    afterAll(() => {
+        dirs.forEach((dir) => {
+            rmSync(dir, { recursive: true, force: true });
+        });
+    });
 
     function check(overrides: Files = {}, remove: string[] = []): { errors: string[]; warnings: string[] } {
         const dir = mkdtempSync(join(tmpdir(), "plugin-validate-"));
@@ -58,14 +90,6 @@ describe("validatePlugin", () => {
             writeFileSync(join(dir, path), typeof content === "string" ? content : JSON.stringify(content, null, 2));
         }
         return validatePlugin(dir);
-    }
-
-    function manifestWith(changes: Record<string, unknown>): object {
-        return { ...(validPlugin()[".cursor-plugin/plugin.json"] as object), ...changes };
-    }
-
-    function mcpWith(server: Record<string, unknown>): object {
-        return { mcpServers: { demo: server } };
     }
 
     it("das Plugin dieses Repos ist gültig; offen ist nur die Lizenzwahl", () => {
@@ -355,16 +379,14 @@ describe("Paket-Metadaten", () => {
         engines: { node: string };
         dependencies: Record<string, string>;
     };
-    /** Kleinste Version, die eine Range zulässt (über alle `||`-Alternativen), als Zahl zum Vergleichen. */
-    const minVersion = (range: string): number =>
-        Math.min(
-            ...range.split("||").map((alternative) => {
-                const [major = 0, minor = 0, patch = 0] = (/(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(alternative) ?? [])
-                    .slice(1)
-                    .map((part) => Number(part ?? 0));
-                return major * 1e6 + minor * 1e3 + patch;
-            }),
-        );
+    /** Abhängigkeiten, die selbst eine Node-Version verlangen. */
+    const nodeRequirements = Object.keys(pkg.dependencies).flatMap((name) => {
+        const dependency = JSON.parse(
+            readFileSync(join(repoRoot, "node_modules", ...name.split("/"), "package.json"), "utf8"),
+        ) as { engines?: { node?: string } };
+        const required = dependency.engines?.node;
+        return required === undefined ? [] : [[name, required] as const];
+    });
 
     it("minVersion versteht Alternativen und Teilversionen", () => {
         expect(minVersion(">=22")).toBe(22e6);
@@ -372,16 +394,12 @@ describe("Paket-Metadaten", () => {
         expect(minVersion("^20.0.0 || ^22.0.0 || >=24.0.0")).toBe(20e6);
     });
 
-    it.each(Object.keys(pkg.dependencies))("engines.node verlangt mindestens, was %s verlangt", (name) => {
-        const dependency = JSON.parse(
-            readFileSync(join(repoRoot, "node_modules", ...name.split("/"), "package.json"), "utf8"),
-        ) as {
-            engines?: { node?: string };
-        };
-        const required = dependency.engines?.node;
-        if (required) {
-            expect(minVersion(pkg.engines.node)).toBeGreaterThanOrEqual(minVersion(required));
-        }
+    it.each(nodeRequirements)("engines.node verlangt mindestens, was %s verlangt (%s)", (_name, required) => {
+        expect(minVersion(pkg.engines.node)).toBeGreaterThanOrEqual(minVersion(required));
+    });
+
+    it("prüft mindestens claude-agent-acp", () => {
+        expect(nodeRequirements.map(([name]) => name)).toContain("@agentclientprotocol/claude-agent-acp");
     });
 });
 
@@ -423,7 +441,7 @@ describe("Plugin gegen den echten Connector", () => {
     const mcp = JSON.parse(readFileSync(join(repoRoot, "mcp.json"), "utf8")) as {
         mcpServers: Record<string, { env: Record<string, string> }>;
     };
-    const pluginEnv = Object.values(mcp.mcpServers)[0].env;
+    const pluginEnv = defined(Object.values(mcp.mcpServers)[0], "Server in mcp.json").env;
     const clients: ConnectorClient[] = [];
 
     async function connect(env: Record<string, string>): Promise<ConnectorClient> {
@@ -445,8 +463,8 @@ describe("Plugin gegen den echten Connector", () => {
     });
 
     it("die Tool-Tabelle im Skill entspricht genau tools/list", async () => {
-        const documented = [...skill.matchAll(/^\| `([a-z_]+)` \|/gm)].map((match) => match[1]).sort();
-        const offered = (await unset.listToolNames()).sort();
+        const documented = toolsInSkillTable(skill).toSorted(byCodePoint);
+        const offered = (await unset.listToolNames()).toSorted(byCodePoint);
         expect(documented).toEqual(offered);
     });
 

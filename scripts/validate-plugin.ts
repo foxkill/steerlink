@@ -11,7 +11,6 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, isAbsolute, join, posix, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 export interface ValidationResult {
     errors: string[];
@@ -115,8 +114,30 @@ export function isSafeRelativePath(value: string): boolean {
     ) {
         return false;
     }
-    const normalized = posix.normalize(value.replace(/\\/g, "/"));
+    const normalized = posix.normalize(value.replaceAll("\\", "/"));
     return normalized !== ".." && !normalized.startsWith("../");
+}
+
+/** JSON.parse liefert immer Json; der Wächter macht das für den Compiler sichtbar. */
+function toJson(value: unknown): Json {
+    if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value.map((entry) => toJson(entry));
+    }
+    if (typeof value === "object") {
+        return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, toJson(entry)]));
+    }
+    throw new TypeError(`Kein JSON-Wert: ${typeof value}`);
+}
+
+/** Kurzform eines JSON-Werts für Meldungen. */
+function show(value: Json | undefined): string {
+    if (value === undefined) {
+        return "(fehlt)";
+    }
+    return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 function readJson(path: string, label: string, result: ValidationResult): Json | undefined {
@@ -128,7 +149,8 @@ function readJson(path: string, label: string, result: ValidationResult): Json |
         return undefined;
     }
     try {
-        return JSON.parse(text) as Json;
+        const parsed: unknown = JSON.parse(text);
+        return toJson(parsed);
     } catch (error) {
         result.errors.push(
             `${label} ist kein gültiges JSON: ${error instanceof Error ? error.message : String(error)}`,
@@ -145,7 +167,7 @@ function readJson(path: string, label: string, result: ValidationResult): Json |
 export function parseFrontmatter(
     content: string,
 ): { fields: Record<string, string>; invalidLines: string[] } | undefined {
-    const text = content.replace(/^﻿/, "").replace(/\r\n/g, "\n");
+    const text = content.replace(/^﻿/, "").replaceAll("\r\n", "\n");
     if (!text.startsWith("---\n")) {
         return undefined;
     }
@@ -166,15 +188,15 @@ export function parseFrontmatter(
             fields[lastKey] = `${fields[lastKey]} ${line.trim()}`.trim();
             continue;
         }
-        const match = /^([A-Za-z][A-Za-z0-9_-]*):(?:\s+(.*))?$/.exec(line);
-        if (!match) {
+        const [, key, rawValue = ""] = /^([A-Za-z][A-Za-z0-9_-]*):(?:\s+(.*))?$/.exec(line) ?? [];
+        if (key === undefined) {
             invalidLines.push(line);
             continue;
         }
-        lastKey = match[1];
+        lastKey = key;
         // YAML-Blockskalar (`>`, `|`, `>-` …): der Inhalt folgt in den eingerückten Zeilen.
-        const value = (match[2] ?? "").trim();
-        fields[lastKey] = /^[>|][+-]?$/.test(value) ? "" : unquote(value);
+        const value = rawValue.trim();
+        fields[key] = /^[>|][+-]?$/.test(value) ? "" : unquote(value);
     }
     return { fields, invalidLines };
 }
@@ -386,14 +408,14 @@ function validateVariablesSchema(schema: Json, result: ValidationResult): void {
         }
     }
     if (schema.required !== undefined) {
-        if (!isStringArray(schema.required)) {
-            result.errors.push('plugin.json: "variables.required" muss ein String-Array sein');
-        } else {
+        if (isStringArray(schema.required)) {
             for (const name of schema.required) {
                 if (!(name in schema.properties)) {
                     result.errors.push(`plugin.json: "variables.required" nennt unbekannte Variable "${name}"`);
                 }
             }
+        } else {
+            result.errors.push('plugin.json: "variables.required" muss ein String-Array sein');
         }
     }
 }
@@ -402,13 +424,19 @@ function validateVariablesSchema(schema: Json, result: ValidationResult): void {
 
 function collectPlaceholders(value: Json, found: Set<string>): void {
     if (typeof value === "string") {
-        for (const match of value.matchAll(PLACEHOLDER)) {
-            found.add(match[1]);
+        for (const [, name] of value.matchAll(PLACEHOLDER)) {
+            if (name !== undefined) {
+                found.add(name);
+            }
         }
     } else if (Array.isArray(value)) {
-        value.forEach((entry) => collectPlaceholders(entry, found));
+        value.forEach((entry) => {
+            collectPlaceholders(entry, found);
+        });
     } else if (isObject(value)) {
-        Object.values(value).forEach((entry) => collectPlaceholders(entry, found));
+        Object.values(value).forEach((entry) => {
+            collectPlaceholders(entry, found);
+        });
     }
 }
 
@@ -530,10 +558,10 @@ function validateStdioServer(
     }
     if (packageJson) {
         if (name !== packageJson.name) {
-            result.errors.push(`${label}: startet "${name}", das Repo baut aber "${String(packageJson.name)}"`);
+            result.errors.push(`${label}: startet "${name}", das Repo baut aber "${show(packageJson.name)}"`);
         } else if (version !== packageJson.version) {
             result.errors.push(
-                `${label}: startet ${name}@${version}, package.json hat aber Version ${String(packageJson.version)}`,
+                `${label}: startet ${name}@${version}, package.json hat aber Version ${show(packageJson.version)}`,
             );
         }
     }
@@ -579,7 +607,7 @@ function validateFrontmatterFile(
     rules: FrontmatterRules,
     result: ValidationResult,
 ): Record<string, string> | undefined {
-    const label = `${kind} ${relative(root, file).replace(/\\/g, "/")}`;
+    const label = `${kind} ${relative(root, file).replaceAll("\\", "/")}`;
     const parsed = parseFrontmatter(readFileSync(file, "utf8"));
     if (!parsed) {
         if (!rules.optional) {
@@ -604,7 +632,7 @@ function validateFrontmatterFile(
 }
 
 function validateSkills(root: string, manifest: JsonObject, result: ValidationResult): void {
-    const dirs = manifest.skills !== undefined ? pathValues(manifest.skills) : ["skills"];
+    const dirs = manifest.skills === undefined ? ["skills"] : pathValues(manifest.skills);
     let count = 0;
     for (const dir of dirs) {
         const absolute = resolve(root, dir);
@@ -662,7 +690,7 @@ function scanForSecrets(root: string, files: string[], result: ValidationResult)
         for (const { label, pattern } of SECRET_PATTERNS) {
             if (pattern.test(text)) {
                 result.errors.push(
-                    `${relative(root, file).replace(/\\/g, "/")}: enthält vermutlich ein Secret (${label})`,
+                    `${relative(root, file).replaceAll("\\", "/")}: enthält vermutlich ein Secret (${label})`,
                 );
             }
         }
@@ -694,12 +722,12 @@ export function validatePlugin(root: string): ValidationResult {
     if (packageJson) {
         if (manifest.version !== packageJson.version) {
             result.errors.push(
-                `plugin.json hat Version ${String(manifest.version)}, package.json aber ${String(packageJson.version)}`,
+                `plugin.json hat Version ${show(manifest.version)}, package.json aber ${show(packageJson.version)}`,
             );
         }
         if (manifest.license !== packageJson.license) {
             result.errors.push(
-                `plugin.json hat Lizenz ${String(manifest.license)}, package.json aber ${String(packageJson.license)}`,
+                `plugin.json hat Lizenz ${show(manifest.license)}, package.json aber ${show(packageJson.license)}`,
             );
         }
     }
@@ -753,13 +781,13 @@ export function validatePlugin(root: string): ValidationResult {
     if (!existsSync(readme) || readFileSync(readme, "utf8").trim().length === 0) {
         result.errors.push("README.md fehlt oder ist leer (die Checkliste verlangt Nutzung und Konfiguration)");
     } else if (packageJson && typeof packageJson.name === "string") {
-        const escaped = packageJson.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const escaped = packageJson.name.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
         for (const match of readFileSync(readme, "utf8").matchAll(
             new RegExp(`${escaped}@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?)`, "g"),
         )) {
             if (match[1] !== packageJson.version) {
                 result.errors.push(
-                    `README.md nennt ${match[0]}, package.json hat aber Version ${String(packageJson.version)}`,
+                    `README.md nennt ${match[0]}, package.json hat aber Version ${show(packageJson.version)}`,
                 );
             }
         }
@@ -772,9 +800,11 @@ export function validatePlugin(root: string): ValidationResult {
     ];
     const scanPaths = new Set(["skills", "rules", "agents", "commands", "assets", "docs"]);
     for (const field of ["rules", "agents", "skills", "commands", "hooks"] as const) {
-        pathValues(manifest[field])
-            .filter(isSafeRelativePath)
-            .forEach((path) => scanPaths.add(path));
+        for (const path of pathValues(manifest[field])) {
+            if (isSafeRelativePath(path)) {
+                scanPaths.add(path);
+            }
+        }
     }
     for (const path of scanPaths) {
         const absolute = resolve(root, path);
@@ -803,6 +833,6 @@ function main(): void {
     console.log(`Plugin-Prüfung bestanden${warnings.length > 0 ? ` (${warnings.length} Warnungen)` : ""}.`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
     main();
 }

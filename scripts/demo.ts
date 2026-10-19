@@ -109,17 +109,15 @@ async function main(): Promise<number> {
         return exists && content.trim() === "hi" && granted > 0 ? 0 : 1;
     } finally {
         await client.close();
-        rmSync(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        rmSync(workDir, { recursive: true, force: true, maxRetries: 40, retryDelay: 500 });
     }
 }
 
-main().then(
-    (code) => {
-        console.log(code === 0 ? "\nDEMO OK" : "\nDEMO FEHLGESCHLAGEN");
-        process.exit(code);
-    },
-    (error: unknown) => {
-        console.error(error instanceof Error ? error.message : error);
-        process.exit(1);
-    },
-);
+try {
+    const code = await main();
+    console.log(code === 0 ? "\nDEMO OK" : "\nDEMO FEHLGESCHLAGEN");
+    process.exit(code);
+} catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+}

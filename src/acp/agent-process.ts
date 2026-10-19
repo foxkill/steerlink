@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 
 import {
@@ -76,7 +76,7 @@ export class AgentProcess {
     initializeResponse: InitializeResponse | undefined;
     reportedAuth: AgentReportedAuth | undefined;
     readonly stderrTail: string[] = [];
-    private child: ChildProcess | undefined;
+    private child: ChildProcessWithoutNullStreams | undefined;
     private connection: ClientConnection | undefined;
     private exited = false;
     private authListeners: Array<() => void> = [];
@@ -109,14 +109,18 @@ export class AgentProcess {
         this.child = child;
 
         const spawned = new Promise<void>((resolve, reject) => {
-            child.once("spawn", () => resolve());
-            child.once("error", (error: Error) =>
-                reject(new Error(`Agent "${this.name}" konnte nicht gestartet werden: ${error.message}`)),
-            );
+            child.once("spawn", () => {
+                resolve();
+            });
+            child.once("error", (error: Error) => {
+                reject(new Error(`Agent "${this.name}" konnte nicht gestartet werden: ${error.message}`));
+            });
         });
 
-        child.stderr?.setEncoding("utf8");
-        child.stderr?.on("data", (chunk: string) => this.captureStderr(chunk));
+        child.stderr.setEncoding("utf8");
+        child.stderr.on("data", (chunk: string) => {
+            this.captureStderr(chunk);
+        });
         child.once("exit", (code: number | null, signal: NodeJS.Signals | null) => {
             this.exited = true;
             this.connection?.close();
@@ -128,14 +132,12 @@ export class AgentProcess {
         });
 
         await spawned;
-        if (!child.stdin || !child.stdout) {
-            throw new Error(`Agent "${this.name}": stdio nicht verfügbar`);
-        }
 
-        const stream = ndJsonStream(
-            Writable.toWeb(child.stdin),
-            Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
-        );
+        // @types/node typisiert Readable.toWeb nur als ReadableStream<any>. stdout ohne
+        // setEncoding liefert Buffer, also Uint8Array – die Assertion ist damit korrekt.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const input = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>;
+        const stream = ndJsonStream(Writable.toWeb(child.stdin), input);
         this.connection = client({ name: PACKAGE_NAME })
             .onRequest(methods.client.session.requestPermission, (context) =>
                 this.sink.onPermissionRequest(this.name, context.params),
@@ -153,7 +155,9 @@ export class AgentProcess {
                         this.reportedAuth = sanitized;
                         const listeners = this.authListeners;
                         this.authListeners = [];
-                        listeners.forEach((listener) => listener());
+                        listeners.forEach((listener) => {
+                            listener();
+                        });
                     }
                 },
             )
@@ -195,9 +199,15 @@ export class AgentProcess {
         if (!child || this.exited) {
             return;
         }
-        const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
-        child.stdin?.end();
-        const timer = setTimeout(() => child.kill("SIGTERM"), STOP_GRACE_MS);
+        const exited = new Promise<void>((resolve) => {
+            child.once("exit", () => {
+                resolve();
+            });
+        });
+        child.stdin.end();
+        const timer = setTimeout(() => {
+            child.kill("SIGTERM");
+        }, STOP_GRACE_MS);
         await exited;
         clearTimeout(timer);
     }

@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { AgentInfo, AuthStatusResult, TurnResult } from "../../src/sessions/session-manager.js";
 import { ConnectorClient, FAKE_AGENT_PATH, REPO_ROOT } from "../helpers/connector-client.js";
+import { defined } from "../helpers/defined.js";
 
 /**
  * Prüft das veröffentlichte Paket so, wie ein Host es nutzt (`npm run test:package`):
@@ -79,13 +80,21 @@ function directorySize(dir: string): number {
     return listFiles(dir).reduce((sum, file) => sum + statSync(file).size, 0);
 }
 
-function samePath(a: string, b: string): boolean {
-    const normalize = (path: string): string => {
-        const real = realpathSync(path);
-        return process.platform === "win32" ? real.toLowerCase() : real;
-    };
-    return normalize(a) === normalize(b);
+function normalizePath(path: string): string {
+    const real = realpathSync(path);
+    return process.platform === "win32" ? real.toLowerCase() : real;
 }
+
+function samePath(a: string, b: string): boolean {
+    return normalizePath(a) === normalizePath(b);
+}
+
+function byCodePoint(a: string, b: string): number {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Dateien, die npm neben `files` immer ins Paket legt. */
+const ALWAYS_PACKED = ["README.md", "package.json", ...(existsSync(join(REPO_ROOT, "LICENSE")) ? ["LICENSE"] : [])];
 
 describe("npm-Paket: pack → install → npx", () => {
     const client = new ConnectorClient();
@@ -97,11 +106,10 @@ describe("npm-Paket: pack → install → npx", () => {
     beforeAll(async () => {
         npm(["run", "build"], REPO_ROOT);
         // --ignore-scripts: der Build ist schon gelaufen, und Skript-Ausgaben würden das JSON verunreinigen.
-        pack = (
-            JSON.parse(
-                npm(["pack", "--json", "--ignore-scripts", "--pack-destination", scratch], REPO_ROOT),
-            ) as PackResult[]
-        )[0];
+        const packed = JSON.parse(
+            npm(["pack", "--json", "--ignore-scripts", "--pack-destination", scratch], REPO_ROOT),
+        ) as PackResult[];
+        pack = defined(packed[0], "Ergebnis von npm pack");
 
         mkdirSync(installDir, { recursive: true });
         mkdirSync(workDir, { recursive: true });
@@ -148,26 +156,25 @@ describe("npm-Paket: pack → install → npx", () => {
     });
 
     it("enthält genau den gebauten Code, keine Quellen, Tests, Source Maps oder Secrets", () => {
-        const packed = pack.files.map((file) => file.path.replace(/\\/g, "/")).sort();
+        const packed = pack.files.map((file) => file.path.replaceAll("\\", "/")).toSorted(byCodePoint);
         const built = listFiles(join(REPO_ROOT, "dist"))
             .filter((file) => file.endsWith(".js"))
-            .map((file) => relative(REPO_ROOT, file).replace(/\\/g, "/"));
-        const docs = ["README.md", "package.json", ...(existsSync(join(REPO_ROOT, "LICENSE")) ? ["LICENSE"] : [])];
-        expect(packed).toEqual([...built, ...docs].sort());
+            .map((file) => relative(REPO_ROOT, file).replaceAll("\\", "/"));
+        expect(packed).toEqual([...built, ...ALWAYS_PACKED].toSorted(byCodePoint));
         expect(readFileSync(join(REPO_ROOT, "dist", "main.js"), "utf8").startsWith("#!/usr/bin/env node\n")).toBe(true);
     });
 
     it("meldet Name und Version aus package.json und bietet alle Tools an", async () => {
         expect(client.serverVersion()).toEqual({ name: packageJson.name, version: packageJson.version });
-        expect((await client.listToolNames()).sort()).toEqual(EXPECTED_TOOLS);
+        expect((await client.listToolNames()).toSorted(byCodePoint)).toEqual(EXPECTED_TOOLS);
     });
 
     it("findet claude-agent-acp in der Installation, nicht im Repo", async () => {
         const agents = (await client.call<{ agents: AgentInfo[] }>("list_agents")).data.agents;
         const claude = agents.find((agent) => agent.name === "claude");
         const adapterDir = join(installDir, "node_modules", "@agentclientprotocol", "claude-agent-acp");
-        expect(claude?.args[0]).toBeDefined();
-        expect(samePath(join(claude!.args[0], "..", ".."), adapterDir)).toBe(true);
+        const entry = defined(claude?.args[0], "Startdatei von claude-agent-acp");
+        expect(samePath(join(entry, "..", ".."), adapterDir)).toBe(true);
     });
 
     it("startet den echten Claude-Adapter aus der Installation", async () => {

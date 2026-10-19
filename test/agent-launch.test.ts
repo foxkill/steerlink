@@ -85,11 +85,11 @@ describe("buildAgentLaunch", () => {
     it("Nutzer-Einstellungen wie CLAUDE_CODE_GIT_BASH_PATH erreichen den Agent", () => {
         const launch = buildAgentLaunch(claude, "api_key", {
             ANTHROPIC_API_KEY: "k",
-            CLAUDE_CODE_GIT_BASH_PATH: "C:\Program Files\Git\bin\bash.exe",
+            CLAUDE_CODE_GIT_BASH_PATH: "C:Program FilesGit\bin\bash.exe",
             CLAUDE_CODE_USE_BEDROCK: "1",
             CLAUDE_CODE_MAX_OUTPUT_TOKENS: "8000",
         });
-        expect(launch.env.CLAUDE_CODE_GIT_BASH_PATH).toBe("C:\Program Files\Git\bin\bash.exe");
+        expect(launch.env.CLAUDE_CODE_GIT_BASH_PATH).toBe("C:Program FilesGit\bin\bash.exe");
         expect(launch.env.CLAUDE_CODE_USE_BEDROCK).toBe("1");
         expect(launch.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS).toBe("8000");
     });

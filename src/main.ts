@@ -7,7 +7,9 @@ import { PACKAGE_NAME, PACKAGE_VERSION } from "./package-info.js";
 import { SessionManager } from "./sessions/session-manager.js";
 
 async function main(): Promise<void> {
-    // stdout gehört allein dem MCP-Protokoll.
+    // stdout gehört allein dem MCP-Protokoll. Schreibt eine Bibliothek per
+    // console.log, landet das auf stderr statt im JSON-RPC-Strom.
+    // oxlint-disable-next-line no-console
     console.log = console.error;
 
     const config = loadConnectorConfig();
@@ -34,7 +36,9 @@ async function main(): Promise<void> {
     );
 }
 
-main().catch((error: unknown) => {
+try {
+    await main();
+} catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);
-});
+}

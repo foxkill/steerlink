@@ -10,6 +10,9 @@ MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ acp-agent-bridge ─�
                                                                └─ACP/stdio──▶ other ACP agents (e.g. codex-acp)
 ```
 
+**Product page:** <https://foxkill.github.io/grokbot-acp-connector/> (source in `site/`, published by
+`.github/workflows/pages.yml`).
+
 The bridge plays the role an editor such as Zed plays for its external agents: it is the ACP client. The agents run
 unmodified through their official ACP adapters.
 
@@ -124,11 +127,18 @@ Optional JSON file, path in `ACP_CONNECTOR_CONFIG` (modelled on Zed's `agent_ser
 
 ```bash
 npm ci
-npm run check           # typecheck, unit and integration tests, plugin validation
+npm run check           # typecheck, lint, format check, unit and integration tests, plugin validation
+npm run lint:fix        # oxlint with type-aware rules, safe fixes
+npm run format          # oxfmt, 4-space indentation
 npm run test:package    # npm pack → install into an empty folder → start via npx (needs network)
 npm run test:smoke      # against the real claude-agent-acp (needs ANTHROPIC_API_KEY)
 npm run demo            # end-to-end demo: MCP client → bridge → Claude Code → hello.txt
 ```
+
+Tooling: TypeScript 7 with the strictest compiler options (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+`verbatimModuleSyntax`, …), [oxlint](https://oxc.rs) with type-aware rules via `oxlint-tsgolint`, and oxfmt.
+`tsconfig.json` covers the whole project for the editor, the type checker and the linter; `tsconfig.build.json` builds
+only `src/`. External JSON (config file, `package.json`) is validated with zod instead of type assertions.
 
 `npm test` runs offline against a fake ACP agent and costs nothing. `npm run validate:plugin` checks the plugin
 against Cursor's submission checklist and against this repository (pinned version in `mcp.json` = `package.json`,

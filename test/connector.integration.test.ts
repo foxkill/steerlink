@@ -2,10 +2,11 @@ import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { AuthStatusResult, TurnResult, UpdatesResult, AgentInfo } from "../src/sessions/session-manager.js";
 import { ConnectorClient, FAKE_AGENT_PATH } from "./helpers/connector-client.js";
+import { defined } from "./helpers/defined.js";
 
 interface StartSessionResult {
     session_id: string;
@@ -84,9 +85,12 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
             text: "write hello.txt hi",
         });
         expect(turn.data.status).toBe("awaiting_permission");
-        const permission = turn.data.pending_permissions[0];
+        const permission = defined(turn.data.pending_permissions[0], "offene Freigabe");
         expect(permission.title).toBe("Write hello.txt");
-        expect(turn.data.tool_calls[0].diffs[0]).toMatchObject({ new_text: "hi", old_text: null });
+        expect(defined(turn.data.tool_calls[0], "Tool-Call").diffs[0]).toMatchObject({
+            new_text: "hi",
+            old_text: null,
+        });
         expect(existsSync(join(workDir, "hello.txt"))).toBe(false);
 
         const pending = await client.call<{ pending_permissions: Array<{ permission_id: string }> }>(
@@ -102,24 +106,27 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         });
         expect(answer.data.selected_option.kind).toBe("allow_once");
 
-        let updates: UpdatesResult | undefined;
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-            updates = (
-                await client.call<UpdatesResult>("get_session_updates", {
-                    session_id: session.data.session_id,
-                    wait_seconds: 2,
-                })
-            ).data;
-            if (updates.events.some((event) => event.type === "turn_end")) {
-                // turn_end und status=idle kommen im selben Abruf an.
-                expect(updates.status).toBe("idle");
-            }
-            if (updates.status === "idle") break;
-        }
-        expect(updates?.status).toBe("idle");
-        expect(updates?.last_turn?.stop_reason).toBe("end_turn");
-        expect(updates?.last_turn?.tool_calls[0].status).toBe("completed");
-        expect(updates?.last_turn?.response_text).toContain("Fertig");
+        const polls: UpdatesResult[] = [];
+        const updates = await vi.waitFor(
+            async () => {
+                const result = (
+                    await client.call<UpdatesResult>("get_session_updates", {
+                        session_id: session.data.session_id,
+                        wait_seconds: 2,
+                    })
+                ).data;
+                polls.push(result);
+                expect(result.status).toBe("idle");
+                return result;
+            },
+            { timeout: 40_000, interval: 0 },
+        );
+        // turn_end kommt genau einmal, und zwar im selben Abruf wie status=idle.
+        const withTurnEnd = polls.filter((poll) => poll.events.some((event) => event.type === "turn_end"));
+        expect(withTurnEnd.map((poll) => poll.status)).toEqual(["idle"]);
+        expect(updates.last_turn?.stop_reason).toBe("end_turn");
+        expect(updates.last_turn?.tool_calls[0]?.status).toBe("completed");
+        expect(updates.last_turn?.response_text).toContain("Fertig");
         expect(readFileSync(join(workDir, "hello.txt"), "utf8")).toBe("hi");
     });
 
@@ -130,7 +137,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
             text: "write denied.txt nope",
         });
         await client.call("respond_permission", {
-            permission_id: turn.data.pending_permissions[0].permission_id,
+            permission_id: defined(turn.data.pending_permissions[0], "offene Freigabe").permission_id,
             decision: "deny",
         });
         const updates = await client.call<UpdatesResult>("get_session_updates", {

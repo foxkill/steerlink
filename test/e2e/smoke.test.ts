@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { AuthStatusResult, TurnResult, UpdatesResult } from "../../src/sessions/session-manager.js";
 import { ConnectorClient } from "../helpers/connector-client.js";
@@ -27,7 +27,7 @@ describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
 
     afterAll(async () => {
         await client.close();
-        rmSync(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        rmSync(workDir, { recursive: true, force: true, maxRetries: 40, retryDelay: 500 });
     });
 
     it("auth_status zeigt die aktive Methode ohne Secrets", async () => {
@@ -54,27 +54,31 @@ describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
         expect(turn.data.status).toBe("awaiting_permission");
         expect(existsSync(join(workDir, "hello.txt"))).toBe(false);
 
-        let status = turn.data.status;
-        let lastTurn: TurnResult | null = null;
-        for (let round = 0; round < 30 && status !== "idle"; round += 1) {
-            const pending = await client.call<{ pending_permissions: Array<{ permission_id: string }> }>(
-                "list_pending_permissions",
-                { session_id: sessionId },
-            );
-            for (const permission of pending.data.pending_permissions) {
-                await client.call("respond_permission", { permission_id: permission.permission_id, decision: "allow" });
-            }
-            const updates = await client.call<UpdatesResult>("get_session_updates", {
-                session_id: sessionId,
-                wait_seconds: 10,
-            });
-            status = updates.data.status;
-            lastTurn = updates.data.last_turn;
-        }
+        // Jede Freigabe erteilen, bis der Turn fertig ist.
+        const lastTurn = await vi.waitFor(
+            async () => {
+                const pending = await client.call<{ pending_permissions: Array<{ permission_id: string }> }>(
+                    "list_pending_permissions",
+                    { session_id: sessionId },
+                );
+                for (const permission of pending.data.pending_permissions) {
+                    await client.call("respond_permission", {
+                        permission_id: permission.permission_id,
+                        decision: "allow",
+                    });
+                }
+                const updates = await client.call<UpdatesResult>("get_session_updates", {
+                    session_id: sessionId,
+                    wait_seconds: 10,
+                });
+                expect(updates.data.status).toBe("idle");
+                return updates.data.last_turn;
+            },
+            { timeout: 280_000, interval: 0 },
+        );
 
-        expect(status).toBe("idle");
         expect(lastTurn?.stop_reason).toBe("end_turn");
-        expect(lastTurn?.tool_calls.some((call) => call.kind === "edit" && call.status === "completed")).toBe(true);
+        expect(lastTurn?.tool_calls).toContainEqual(expect.objectContaining({ kind: "edit", status: "completed" }));
         expect(readFileSync(join(workDir, "hello.txt"), "utf8").trim()).toBe("hi");
 
         const closed = await client.call<{ closed: boolean }>("close_session", { session_id: sessionId });

@@ -33,16 +33,29 @@ eingereicht wird und was vorher noch zu entscheiden ist, steht in `docs/marketpl
 - **Korrektur:** `engines.node` war `>=20`, `claude-agent-acp` verlangt aber Node ≥ 22. Jetzt `>=22`; ein Test
   prüft das künftig gegen alle Abhängigkeiten.
 
+## Codequalität und Werkzeuge
+
+- TypeScript 7 mit strengsten Optionen (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+  `verbatimModuleSyntax`, `noImplicitOverride` …); `tsconfig.json` fürs ganze Projekt, `tsconfig.build.json` für `src/`.
+- oxlint mit typbasierten Regeln (`oxlint-tsgolint`) und oxfmt (4 Leerzeichen); beides in `npm run check` und CI.
+- Externes JSON (Konfigurationsdatei, `package.json`) wird mit zod validiert statt per `as` angenommen.
+- Alle ACP-Update-Typen sind im `switch` ausdrücklich eingeordnet; neue Typen einer SDK-Version brechen den Build.
+- Nur eine begründete Lint-Ausnahme im Produktivcode (`Readable.toWeb` ist in `@types/node` als `any` typisiert)
+  plus `console.log`-Umleitung in `main.ts`.
+
 ## Wie getestet
 
 | Prüfung | Ergebnis |
 |---|---|
-| `npm run typecheck` | fehlerfrei |
-| `npm test` (Unit, Integration mit Fake-ACP-Agent, Plugin-Validator positiv und mit über 40 kaputten Varianten, Skill-Tooltabelle = `tools/list`, Plugin-Env gegen den echten Connector) | 114 bestanden |
-| `npm run validate:plugin` | bestanden, 1 Warnung (Lizenz noch offen) |
+| `npm run check` (Typprüfung, oxlint, oxfmt, 136 Tests, Plugin-Validator) | grün; 1 Warnung: Lizenz noch offen |
 | Validator aus `cursor/plugin-template` | bestanden |
-| `npm run test:package` (pack → Installation in leeren Ordner → Start per `npx` → echter Claude-Adapter startet → Session mit Fake-Agent) | 5 bestanden; Installation 16 s (warmer Cache), 303 MB |
-| `npm run test:smoke` gegen echtes Claude Code | siehe Abschlussbericht dieses Laufs |
+| `npm run test:package` (pack → Installation in leeren Ordner → Start per `npx` → echter Claude-Adapter → Session) | 5/5; Installation 16 s (warmer Cache), 303 MB |
+| `npm run test:smoke` gegen echtes Claude Code (Abo-Modus, Windows) | 2/2 |
+| Produktseite `site/` | geprüft in 1440 px, 375 px, hell und dunkel |
+
+Gefunden und behoben im echten Smoke-Test: Der Connector hatte alle `CLAUDE_CODE_*`-Variablen entfernt, auch
+`CLAUDE_CODE_GIT_BASH_PATH`. Unter Windows fand Claude Code deshalb kein Git Bash, ein Hook scheiterte und blockierte
+jedes Schreiben. Jetzt werden nur die Variablen entfernt, die eine umgebende Sitzung selbst setzt.
 
 ## Offene Punkte
 
