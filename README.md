@@ -78,6 +78,9 @@ A full task in one message:
 
 The plugin ships no slash commands such as `/list-agents`; Grok Bot hides slash commands by default.
 
+For regular coding work, set up a dedicated bot: see [docs/grok-bot-instructions.md](docs/grok-bot-instructions.md)
+for ready-to-paste instructions, including a GitLab issue workflow.
+
 ## Tools
 
 | Tool | Purpose |
