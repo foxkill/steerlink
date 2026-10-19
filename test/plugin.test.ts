@@ -406,6 +406,16 @@ describe("package metadata", () => {
     });
 });
 
+describe("logo files", () => {
+    it("assets/logo.png is a 1024 × 1024 PNG with transparency (for the submission form and link previews)", () => {
+        const png = readFileSync(join(repoRoot, "assets", "logo.png"));
+        expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
+        expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1024, 1024]);
+        // Colour type 6 = RGBA.
+        expect(png[25]).toBe(6);
+    });
+});
+
 describe("marketplace search", () => {
     const manifest = JSON.parse(readFileSync(join(repoRoot, ".cursor-plugin", "plugin.json"), "utf8")) as {
         name: string;

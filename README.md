@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="" width="96" height="96" align="right">
+
 # Agent Steer
 
 Steer and remote-control **Claude Code** from **Grok Bot**. Agent Steer is an MCP server that lets an MCP host

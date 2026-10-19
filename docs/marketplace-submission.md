@@ -22,7 +22,7 @@ confirming both.
 | Field | Value |
 |---|---|
 | Organization Handle | unique, lowercase, no spaces (e.g. `foxkill`) |
-| Logotype URL | `https://raw.githubusercontent.com/<org>/<repo>/<tag>/assets/logo.svg` (1:1, with a background) |
+| Logotype URL | `https://raw.githubusercontent.com/<org>/<repo>/<tag>/assets/logo.png` (1024 × 1024 PNG with background plate; `assets/logo.svg` is the same logo as a vector) |
 | Listing destination | Grok Bot (optionally also Cursor) |
 | MCP Server URL or Public GitHub Repository | URL of the public repo |
 | Brief Description | see below |

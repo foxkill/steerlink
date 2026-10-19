@@ -23,6 +23,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+      - name: Add the logo for link previews (og:image)
+        run: cp assets/logo.png site/logo.png
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

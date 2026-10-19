@@ -1,10 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
   <title id="title">Agent Steer</title>
-  <rect width="512" height="512" rx="112" fill="#14213D"/>
-  <g fill="none" stroke-linecap="round" transform="translate(0 -48)">
-    <path d="M112 340 Q 256 120 400 340" stroke="#FCA311" stroke-width="32"/>
-    <path d="M184 262 V 340 M256 234 V 340 M328 262 V 340" stroke="#FCA311" stroke-width="16"/>
-    <path d="M80 340 H 432" stroke="#E5E5E5" stroke-width="28"/>
-    <path d="M112 340 V 404 M400 340 V 404" stroke="#E5E5E5" stroke-width="28"/>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="42%">
+      <stop offset="0" stop-color="#18294D"/>
+      <stop offset="1" stop-color="#0F1A35"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="#0F1A35"/>
+  <rect width="1024" height="1024" rx="230" fill="url(#glow)"/>
+  <g fill="none" stroke-width="84" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M425 298 L632 512 L425 725" stroke="#F1F2F7"/>
+    <path d="M600 298 L392 512 L600 725" stroke="#FFB020"/>
+    <!-- Lower white arm over the orange one, so the two chevrons interlock. -->
+    <path d="M632 512 L425 725" stroke="#F1F2F7"/>
   </g>
 </svg>
