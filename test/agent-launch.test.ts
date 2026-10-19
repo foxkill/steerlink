@@ -5,7 +5,6 @@ import {
     AuthConfigError,
     buildAgentLaunch,
     describeCredentials,
-    HIDE_CLAUDE_AUTH_FLAG,
     PARENT_SESSION_VARS,
 } from "../src/auth/agent-launch.js";
 import type { AgentServerConfig } from "../src/config/connector-config.js";
@@ -34,12 +33,20 @@ describe("buildAgentLaunch", () => {
         CLAUDE_CODE_SESSION_ID: "abc",
     };
 
-    it("api_key: key stays, OAuth token is removed, subscription blocked", () => {
+    it("api_key: key stays, OAuth token is removed", () => {
         const launch = buildAgentLaunch(claude, "api_key", base);
         expect(launch.env.ANTHROPIC_API_KEY).toBe("sk-test");
         expect(launch.env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
-        expect(launch.args).toContain(HIDE_CLAUDE_AUTH_FLAG);
     });
+
+    it.each(["api_key", "subscription"] as const)(
+        "%s: the agent's arguments are passed through unchanged, no built-in sign-in is hidden",
+        (mode) => {
+            const launch = buildAgentLaunch({ ...claude, args: ["x.js", "--verbose"] }, mode, base);
+            expect(launch.args).toEqual(["x.js", "--verbose"]);
+            expect(launch.args).not.toContain("--hide-claude-auth");
+        },
+    );
 
     it("api_key without a key is a configuration error", () => {
         expect(() => buildAgentLaunch(claude, "api_key", { PATH: "/bin" })).toThrow(AuthConfigError);
@@ -52,11 +59,10 @@ describe("buildAgentLaunch", () => {
         expect(launch.env.ANTHROPIC_API_KEY).toBe("sk-config");
     });
 
-    it("subscription: API keys removed, OAuth token only passed through, no flag", () => {
-        const launch = buildAgentLaunch({ ...claude, args: ["x.js", HIDE_CLAUDE_AUTH_FLAG] }, "subscription", base);
+    it("subscription: API keys removed, OAuth token only passed through", () => {
+        const launch = buildAgentLaunch(claude, "subscription", base);
         expect(launch.env.ANTHROPIC_API_KEY).toBeUndefined();
         expect(launch.env.CLAUDE_CODE_OAUTH_TOKEN).toBe("oauth-test");
-        expect(launch.args).not.toContain(HIDE_CLAUDE_AUTH_FLAG);
     });
 
     it("variables of an enclosing Claude Code session are not inherited", () => {

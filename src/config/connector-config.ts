@@ -24,7 +24,7 @@ const agentServerSchema = z.object({
     env: z.record(z.string(), z.string({ error: "must be a string" }), { error: "must be an object" }).default({}),
     /**
      * `claude`: the agent is the Claude Code adapter. The connector then
-     * enforces the auth rules from `auth_mode` (cleaning the env, `--hide-claude-auth`).
+     * enforces the auth rules from `auth_mode` (which credentials reach the agent).
      * `none`: env and args are passed through unchanged. If omitted, `claude`
      * applies to the name `claude`, otherwise `none`.
      */

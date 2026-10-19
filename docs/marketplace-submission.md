@@ -9,7 +9,7 @@ format). Reference for format and checklist: <https://cursor.com/docs/reference/
 |---|---|---|
 | License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
 | Name | Decided: `steerlink` / "SteerLink". `agent-steer` was rejected by npm as too similar to the existing `agentsteer` (AgentSteer, a security monitor for AI coding agents); a similar name in the same space would also risk confusion. | — |
-| npm release | `0.1.0-rc.0` published (tag `next`) and tested in Grok Bot; repo at `0.1.0` | Run `npm publish` in a real terminal (2FA needs it). `prepublishOnly` runs `check` and `test:package` first. |
+| npm release | `0.1.0` published; repo at `0.1.1` (keeps Claude Code's built-in sign-in methods visible) | Run `npm publish` in a real terminal (2FA needs it). `prepublishOnly` runs `check` and `test:package` first. |
 | Repo | `foxkill/steerlink` (renamed from `grokbot-acp-connector`) | Make it public and enable GitHub Pages (source: GitHub Actions). |
 | Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
 | Donations | PayPal: `paypal.me/foxkilldev` (`.github/FUNDING.yml`, `package.json` `funding`, README, product page) | Later: Ko-fi or GitHub Sponsors as one more line in `FUNDING.yml`. |
@@ -57,8 +57,8 @@ Source: <https://code.claude.com/docs/en/legal-and-compliance>. Summary and how 
 | Anyone who runs Claude Code in a product agrees to the Commercial Terms. | Agree before offering it, or have Anthropic (Sales) confirm. |
 | The Claude Code binary stays unmodified. | It comes unmodified from `@anthropic-ai/claude-agent-sdk` via the official adapter `claude-agent-acp`. |
 | Every end user pays for themselves (own API key or own subscription); no reselling, no brokering. | Every user enters their own key as a plugin variable. Donations are not payment for Claude usage. |
-| Developer products use API keys; no claude.ai login in your own apps, no collecting subscription tokens. | The plugin sets `ACP_CONNECTOR_AUTH_MODE=api_key`; the adapter runs with `--hide-claude-auth`. Subscription mode is for personal use only and must be set by the user. |
-| Do not remove or restrict any built-in login method. | `--hide-claude-auth` is an option of the official adapter, not a change to the binary. Have Anthropic confirm before launch whether this is enough for a public offering. |
+| Developer products use API keys; no claude.ai login in your own apps, no collecting subscription tokens. | The plugin sets `ACP_CONNECTOR_AUTH_MODE=api_key`. SteerLink offers no login of its own and never sees a claude.ai credential. Subscription mode is for personal use only and must be set by the user. |
+| Do not remove or restrict any built-in login method. | SteerLink passes the adapter's arguments through unchanged and does not use `--hide-claude-auth` (removed in 0.1.1). The built-in methods (`claude-ai-login`, `console-login`) stay available and run through Anthropic's own flow; `test/e2e/package.test.ts` checks this against the real adapter. |
 | No "Claude Code" in the product name or logo; no appearance of a partnership. | Neutral name and own logo; the README states plainly that Claude Code is used and points out the independence. |
 
 Other agents (e.g. Codex) have their own terms.
