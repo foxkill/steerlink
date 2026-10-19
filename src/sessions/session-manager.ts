@@ -108,8 +108,8 @@ const MAX_EVENTS = 2000;
 type TerminalAuthMethod = Extract<AuthMethod, { type: "terminal" }>;
 
 /**
- * Laut Schema tragen nur Terminal-Methoden ein `type`. Auf dem Draht kann ein
- * Agent aber auch andere Werte schicken; deshalb zählt allein `"terminal"`.
+ * Per the schema, only terminal methods carry a `type`. On the wire, though,
+ * an agent may send other values too, so only `"terminal"` counts.
  */
 function isTerminalMethod(method: AuthMethod): method is TerminalAuthMethod {
     return Reflect.get(method, "type") === "terminal";
@@ -157,9 +157,7 @@ export class SessionManager implements AgentEventSink {
         const name = agent ?? this.config.default_agent;
         const server = this.config.agent_servers[name];
         if (!server) {
-            throw new Error(
-                `Unbekannter Agent "${name}". Verfügbar: ${Object.keys(this.config.agent_servers).join(", ")}`,
-            );
+            throw new Error(`Unknown agent "${name}". Available: ${Object.keys(this.config.agent_servers).join(", ")}`);
         }
         return { name, server };
     }
@@ -211,7 +209,7 @@ export class SessionManager implements AgentEventSink {
         );
         if (openSessions.length > 0) {
             throw new Error(
-                `Agent "${name}" hat noch ${openSessions.length} offene Session(s). Erst close_session aufrufen.`,
+                `Agent "${name}" still has ${openSessions.length} open session(s). Call close_session first.`,
             );
         }
         this.agents.delete(name);
@@ -228,10 +226,10 @@ export class SessionManager implements AgentEventSink {
         available_modes: Array<{ id: string; name: string }>;
     }> {
         if (!isAbsolute(params.cwd)) {
-            throw new Error("cwd muss ein absoluter Pfad sein");
+            throw new Error("cwd must be an absolute path");
         }
         if (!statSync(params.cwd, { throwIfNoEntry: false })?.isDirectory()) {
-            throw new Error(`cwd "${params.cwd}" ist kein existierendes Verzeichnis`);
+            throw new Error(`cwd "${params.cwd}" is not an existing directory`);
         }
         const agentName = this.resolveAgentName(params.agent);
         const agentProcess = await this.ensureAgent(agentName);
@@ -271,7 +269,7 @@ export class SessionManager implements AgentEventSink {
     private getSession(sessionId: string): SessionState {
         const session = this.sessions.get(sessionId);
         if (!session) {
-            throw new Error(`Unbekannte Session "${sessionId}"`);
+            throw new Error(`Unknown session "${sessionId}"`);
         }
         return session;
     }
@@ -279,7 +277,7 @@ export class SessionManager implements AgentEventSink {
     private getOpenSession(sessionId: string): SessionState {
         const session = this.getSession(sessionId);
         if (session.closedReason) {
-            throw new Error(`Session "${sessionId}" ist geschlossen: ${session.closedReason}`);
+            throw new Error(`Session "${sessionId}" is closed: ${session.closedReason}`);
         }
         return session;
     }
@@ -289,7 +287,7 @@ export class SessionManager implements AgentEventSink {
         const available = session.modes?.availableModes ?? [];
         if (!available.some((mode) => mode.id === modeId)) {
             throw new Error(
-                `Modus "${modeId}" nicht verfügbar. Verfügbar: ${available.map((mode) => mode.id).join(", ") || "keine"}`,
+                `Mode "${modeId}" is not available. Available: ${available.map((mode) => mode.id).join(", ") || "none"}`,
             );
         }
         const agentProcess = await this.ensureAgent(session.agentName);
@@ -319,7 +317,7 @@ export class SessionManager implements AgentEventSink {
         const session = this.getOpenSession(params.session_id);
         if (session.turn && !session.turn.finished) {
             throw new Error(
-                "In dieser Session läuft bereits ein Prompt. Mit get_session_updates warten oder cancel aufrufen.",
+                "A prompt is already running in this session. Wait with get_session_updates or call cancel.",
             );
         }
         const agentProcess = await this.ensureAgent(session.agentName);
@@ -327,12 +325,12 @@ export class SessionManager implements AgentEventSink {
         const turn: Turn = { number: session.turnCount, text: "", toolCallIds: [], finished: false };
         session.turn = turn;
 
-        // Läuft bewusst im Hintergrund weiter; Ergebnis und Fehler landen im Ereignis-Puffer.
+        // Deliberately keeps running in the background; results and errors end up in the event buffer.
         void this.runTurn(agentProcess, session, turn, params.text);
 
         if (params.wait) {
             await this.waitFor(session, () => this.status(session) !== "running", params.timeout_seconds * 1000);
-            // Was der Aufrufer hier bekommt, gilt als gelesen.
+            // Whatever the caller receives here counts as read.
             session.cursor = this.seqCounter;
         }
         return this.turnResult(session);
@@ -344,7 +342,7 @@ export class SessionManager implements AgentEventSink {
                 sessionId: session.id,
                 prompt: [{ type: "text", text }],
             });
-            // Erst abschließen, dann melden: wer turn_end sieht, sieht auch status=idle.
+            // Finish first, then report: whoever sees turn_end also sees status=idle.
             turn.stopReason = response.stopReason;
             turn.finished = true;
             this.pushEvent(session, { seq: 0, type: "turn_end", stop_reason: response.stopReason });
@@ -404,7 +402,7 @@ export class SessionManager implements AgentEventSink {
                 : this.optionForDecision(pending.options, params.decision ?? "deny");
             if (!option) {
                 throw new Error(
-                    `Keine passende Option. Verfügbar: ${pending.options.map((candidate) => `${candidate.optionId} (${candidate.kind})`).join(", ")}`,
+                    `No matching option. Available: ${pending.options.map((candidate) => `${candidate.optionId} (${candidate.kind})`).join(", ")}`,
                 );
             }
             session.pendingPermissions.delete(params.permission_id);
@@ -421,7 +419,7 @@ export class SessionManager implements AgentEventSink {
                 session_status: this.status(session),
             };
         }
-        throw new Error(`Unbekannte oder bereits beantwortete Permission "${params.permission_id}"`);
+        throw new Error(`Unknown or already answered permission "${params.permission_id}"`);
     }
 
     private optionForDecision(
@@ -467,7 +465,7 @@ export class SessionManager implements AgentEventSink {
             ) {
                 await agentProcess.agent.request(methods.agent.session.close, { sessionId });
             }
-            session.closedReason = "vom Client geschlossen";
+            session.closedReason = "closed by the client";
             this.notify(session);
         }
         this.sessions.delete(sessionId);
@@ -521,15 +519,15 @@ export class SessionManager implements AgentEventSink {
 
         let effective: string;
         if (!isClaude) {
-            effective = "vom Agent selbst verwaltet (auth_profile=none)";
+            effective = "managed by the agent itself (auth_profile=none)";
         } else if (this.config.auth_mode === "api_key") {
             effective = credentials.anthropic_api_key_set
-                ? "Anthropic API key aus ANTHROPIC_API_KEY; claude.ai-Abo per --hide-claude-auth gesperrt"
-                : "keine: auth_mode=api_key, aber ANTHROPIC_API_KEY fehlt";
+                ? "Anthropic API key from ANTHROPIC_API_KEY; claude.ai subscription blocked via --hide-claude-auth"
+                : "none: auth_mode=api_key, but ANTHROPIC_API_KEY is missing";
         } else {
             effective = credentials.claude_code_oauth_token_set
-                ? "Claude-Abo über CLAUDE_CODE_OAUTH_TOKEN aus der Umgebung (durchgereicht, nicht gespeichert)"
-                : "Claude-Abo über den vorhandenen Claude-Code-Login (claude /login)";
+                ? "Claude subscription via CLAUDE_CODE_OAUTH_TOKEN from the environment (passed through, not stored)"
+                : "Claude subscription via the existing Claude Code login (claude /login)";
         }
 
         return {
@@ -559,13 +557,13 @@ export class SessionManager implements AgentEventSink {
         if (!method) {
             const available = (agentProcess.initializeResponse?.authMethods ?? []).map((candidate) => candidate.id);
             throw new Error(
-                `Auth-Methode "${params.method_id}" wird nicht angeboten. Verfügbar: ${available.join(", ") || "keine"}`,
+                `Auth method "${params.method_id}" is not offered. Available: ${available.join(", ") || "none"}`,
             );
         }
         if (isTerminalMethod(method)) {
-            // Laut ACP darf der Client für Terminal-Methoden kein `authenticate`
-            // senden, sondern muss den Agent interaktiv starten. Das kann ein
-            // MCP-Server nicht; deshalb gibt der Connector nur die Anleitung aus.
+            // Per ACP, the client must not send `authenticate` for terminal
+            // methods but has to start the agent interactively. An MCP server
+            // cannot do that, so the connector only returns the instructions.
             const command = [server.command, ...server.args, ...(method.args ?? [])]
                 .map((part) => (/\s/.test(part) ? `"${part}"` : part))
                 .join(" ");
@@ -573,13 +571,13 @@ export class SessionManager implements AgentEventSink {
                 agent: name,
                 method_id: params.method_id,
                 result:
-                    "Interaktiver Login nötig. Den Befehl selbst in einem Terminal ausführen und danach auth_status mit restart_agent=true aufrufen. " +
-                    "Der Connector sieht und speichert dabei keine Zugangsdaten.",
+                    "Interactive login required. Run the command yourself in a terminal, then call auth_status with restart_agent=true. " +
+                    "The connector neither sees nor stores any credentials in the process.",
                 command,
             };
         }
         await agentProcess.agent.request(methods.agent.authenticate, { methodId: params.method_id });
-        return { agent: name, method_id: params.method_id, result: "authenticate erfolgreich" };
+        return { agent: name, method_id: params.method_id, result: "authenticate succeeded" };
     }
 
     // -------------------------------------------------------- AgentEventSink
@@ -677,13 +675,13 @@ export class SessionManager implements AgentEventSink {
             case "subagent_update":
             case "session_message":
             case "session_message_chunk":
-                // Für den MCP-Host Rauschen: Eingabe-Echo, Befehlslisten, Nutzungszahlen,
-                // Metadaten und Varianten, die der Connector (noch) nicht zusammenfasst.
+                // Noise for the MCP host: input echo, command lists, usage numbers,
+                // metadata and variants the connector does not summarize (yet).
                 break;
             default: {
-                // Kommt mit einer neuen SDK-Version ein Update-Typ hinzu, schlägt das hier
-                // beim Kompilieren fehl und erinnert daran, ihn bewusst einzuordnen. Zur
-                // Laufzeit werden unbekannte Typen eines neueren Agents ignoriert.
+                // If a new SDK version adds an update type, this fails to compile and
+                // reminds us to classify it deliberately. At runtime, unknown types
+                // from a newer agent are ignored.
                 const unhandled: never = update;
                 void unhandled;
                 break;
@@ -742,7 +740,7 @@ export class SessionManager implements AgentEventSink {
         await Promise.all(processes.map((agentProcess) => agentProcess.stop()));
     }
 
-    /** Synchrones Notende aller Agents samt Kindprozessen (für `process.on("exit")`). */
+    /** Synchronous emergency kill of all agents including child processes (for `process.on("exit")`). */
     killAll(): void {
         for (const agentProcess of this.agents.values()) {
             agentProcess.kill();
@@ -769,11 +767,11 @@ export class SessionManager implements AgentEventSink {
         const turn = session.turn;
         const pending = [...session.pendingPermissions.values()].map((entry) => entry.summary);
         const hints: Record<SessionStatus, string> = {
-            idle: "Turn beendet. Nächsten Prompt mit send_prompt senden.",
-            running: "Agent arbeitet noch. Mit get_session_updates (wait_seconds) weiter abfragen.",
+            idle: "Turn finished. Send the next prompt with send_prompt.",
+            running: "Agent is still working. Keep polling with get_session_updates (wait_seconds).",
             awaiting_permission:
-                "Agent wartet auf Freigabe. respond_permission mit permission_id und decision allow/deny aufrufen.",
-            closed: "Session ist geschlossen.",
+                "Agent is waiting for approval. Call respond_permission with permission_id and decision allow/deny.",
+            closed: "Session is closed.",
         };
         return {
             session_id: session.id,

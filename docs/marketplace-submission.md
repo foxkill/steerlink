@@ -1,34 +1,34 @@
-# Einreichung im Grok-Bot-Marktplatz
+# Submitting to the Grok Bot marketplace
 
-Formular: <https://x.ai/bot/marketplace/submit-a-plugin>. Ziele dort: Grok Bot und/oder Cursor (dasselbe
-Plugin-Format). Grundlage für Format und Checkliste: <https://cursor.com/docs/reference/plugins>.
+Form: <https://x.ai/bot/marketplace/submit-a-plugin>. Destinations there: Grok Bot and/or Cursor (same plugin
+format). Reference for format and checklist: <https://cursor.com/docs/reference/plugins>.
 
-## Vor der Einreichung: offene Entscheidungen
+## Before submitting: open decisions
 
-Diese Punkte sind bewusst nicht entschieden, weil sie rechtliche oder geschäftliche Folgen haben:
+These items are deliberately left undecided because they have legal or business consequences:
 
-| Punkt | Stand | Was zu tun ist |
+| Item | Status | What to do |
 |---|---|---|
-| Lizenz | `UNLICENSED` (in `package.json` und `plugin.json`) | Offene Lizenz wählen (z. B. MIT), `LICENSE` anlegen, in beiden Dateien eintragen. `npm run validate:plugin` warnt bis dahin. |
-| Name | Arbeitsname `acp-agent-bridge` (npm-Name am 19.10.2026 frei) | Bestätigen oder ändern: `package.json`, `plugin.json`, `mcp.json`, README. Kein „Claude“, „Anthropic“, „Grok“ oder „xAI“ im Produktnamen. |
-| npm-Veröffentlichung | `"private": true` verhindert versehentliches Veröffentlichen | `private` entfernen, `npm login`, `npm publish`. `prepublishOnly` führt vorher `check` und `test:package` aus. |
-| Repo | `foxkill/grokbot-acp-connector` | Öffentlich machen; ggf. umbenennen (dann `homepage`, `repository`, `bugs` anpassen). |
-| Autor | `foxkill` | Name/E-Mail für Manifest und Formular festlegen. |
-| Spenden | nicht eingerichtet | Optional: `"funding"` in `package.json`, `.github/FUNDING.yml`, Link im README (Buy Me a Coffee, GitHub Sponsors). |
+| License | `UNLICENSED` (in `package.json` and `plugin.json`) | Choose an open license (e.g. MIT), add `LICENSE`, enter it in both files. `npm run validate:plugin` warns until then. |
+| Name | Working name `acp-agent-bridge` (npm name available on 2026-10-19) | Confirm or change: `package.json`, `plugin.json`, `mcp.json`, README. No "Claude", "Anthropic", "Grok" or "xAI" in the product name. |
+| npm release | `"private": true` prevents accidental publishing | Remove `private`, `npm login`, `npm publish`. `prepublishOnly` runs `check` and `test:package` first. |
+| Repo | `foxkill/grokbot-acp-connector` | Make it public; rename if needed (then update `homepage`, `repository`, `bugs`). |
+| Author | `foxkill` | Decide on name/email for the manifest and the form. |
+| Donations | not set up | Optional: `"funding"` in `package.json`, `.github/FUNDING.yml`, link in the README (Buy Me a Coffee, GitHub Sponsors). |
 
-Danach: `npm run check && npm run test:package`, Version taggen, Plugin in Grok Bot lokal installieren und einmal
-komplett durchspielen (siehe Testanleitung).
+Then: `npm run check && npm run test:package`, tag the version, install the plugin locally in Grok Bot and run
+through it once end to end (see the testing instructions).
 
-## Formularfelder
+## Form fields
 
-| Feld | Wert |
+| Field | Value |
 |---|---|
-| Organization Handle | eindeutig, klein, ohne Leerzeichen (z. B. `foxkill`) |
-| Logotype URL | `https://raw.githubusercontent.com/<org>/<repo>/<tag>/assets/logo.svg` (1:1, mit Hintergrundfläche) |
-| Listing destination | Grok Bot (optional zusätzlich Cursor) |
-| MCP Server URL or Public GitHub Repository | URL des öffentlichen Repos |
-| Brief Description | siehe unten |
-| Testing Instructions | siehe unten |
+| Organization Handle | unique, lowercase, no spaces (e.g. `foxkill`) |
+| Logotype URL | `https://raw.githubusercontent.com/<org>/<repo>/<tag>/assets/logo.svg` (1:1, with a background) |
+| Listing destination | Grok Bot (optionally also Cursor) |
+| MCP Server URL or Public GitHub Repository | URL of the public repo |
+| Brief Description | see below |
+| Testing Instructions | see below |
 
 ### Brief Description
 
@@ -50,25 +50,25 @@ komplett durchspielen (siehe Testanleitung).
 > 6. Without the variable set, `auth_status` reports that `ANTHROPIC_API_KEY` must be entered in the plugin
 >    settings, and `start_session` fails with the same message.
 
-## Regeln von Anthropic (Stand 19.10.2026)
+## Anthropic's rules (as of 2026-10-19)
 
-Quelle: <https://code.claude.com/docs/en/legal-and-compliance>. Kurzfassung und wie das Plugin sie erfüllt:
+Source: <https://code.claude.com/docs/en/legal-and-compliance>. Summary and how the plugin complies:
 
-| Regel | Umsetzung |
+| Rule | How the plugin complies |
 |---|---|
-| Wer Claude Code in einem Produkt betreibt, stimmt den Commercial Terms zu. | Vor dem Angebot zustimmen bzw. bei Anthropic (Sales) bestätigen lassen. |
-| Die Claude-Code-Binary bleibt unverändert. | Sie kommt unverändert aus `@anthropic-ai/claude-agent-sdk` über den offiziellen Adapter `claude-agent-acp`. |
-| Jeder Endnutzer zahlt selbst (eigener API-Key oder eigenes Abo); kein Weiterverkauf, keine Vermittlung. | Jeder Nutzer trägt seinen eigenen Key als Plugin-Variable ein. Spenden sind kein Entgelt für Claude-Nutzung. |
-| Entwickler-Produkte nutzen API-Keys; keine claude.ai-Anmeldung in eigenen Apps, keine Abo-Tokens sammeln. | Das Plugin setzt `ACP_CONNECTOR_AUTH_MODE=api_key`; der Adapter läuft mit `--hide-claude-auth`. Der Abo-Modus ist nur für den privaten Gebrauch und muss selbst gesetzt werden. |
-| Keine eingebaute Anmeldemethode entfernen oder einschränken. | `--hide-claude-auth` ist eine Option des offiziellen Adapters, keine Änderung der Binary. Ob das für ein öffentliches Angebot genügt, vor dem Start bei Anthropic bestätigen lassen. |
-| „Claude Code“ nicht im Produktnamen oder Logo; kein Anschein einer Partnerschaft. | Neutraler Name und eigenes Logo; README sagt sachlich, dass Claude Code genutzt wird, und weist auf die Unabhängigkeit hin. |
+| Anyone who runs Claude Code in a product agrees to the Commercial Terms. | Agree before offering it, or have Anthropic (Sales) confirm. |
+| The Claude Code binary stays unmodified. | It comes unmodified from `@anthropic-ai/claude-agent-sdk` via the official adapter `claude-agent-acp`. |
+| Every end user pays for themselves (own API key or own subscription); no reselling, no brokering. | Every user enters their own key as a plugin variable. Donations are not payment for Claude usage. |
+| Developer products use API keys; no claude.ai login in your own apps, no collecting subscription tokens. | The plugin sets `ACP_CONNECTOR_AUTH_MODE=api_key`; the adapter runs with `--hide-claude-auth`. Subscription mode is for personal use only and must be set by the user. |
+| Do not remove or restrict any built-in login method. | `--hide-claude-auth` is an option of the official adapter, not a change to the binary. Have Anthropic confirm before launch whether this is enough for a public offering. |
+| No "Claude Code" in the product name or logo; no appearance of a partnership. | Neutral name and own logo; the README states plainly that Claude Code is used and points out the independence. |
 
-Für weitere Agents (z. B. Codex) gelten deren eigene Bedingungen.
+Other agents (e.g. Codex) have their own terms.
 
-## Bekannte Grenzen
+## Known limitations
 
-- Erster Start lädt ca. 300 MB (gemessen mit `npm run test:package`: 303 MB `node_modules`, 16 s mit warmem
-  npm-Cache). Hosts mit kurzem Start-Timeout können den ersten Start abbrechen.
-- Rückfragen erscheinen als Frage-Karten nur, weil der Skill Grok Bot dazu anleitet. MCP-Elicitation (Formulare
-  direkt vom Server) ist nicht umgesetzt; ob Grok Bot sie unterstützt, ist offen.
-- Sessions leben nur im Speicher des Servers; nach einem Neustart sind sie weg.
+- The first start downloads about 300 MB (measured with `npm run test:package`: 303 MB `node_modules`, 16 s with a
+  warm npm cache). Hosts with a short start timeout can abort the first start.
+- Follow-up questions appear as question cards only because the skill instructs Grok Bot to do so. MCP elicitation
+  (forms sent directly by the server) is not implemented; whether Grok Bot supports it is unknown.
+- Sessions live only in the server's memory; they are gone after a restart.

@@ -27,7 +27,7 @@ jobs:
       - run: npm run check
 
   package:
-    # pack → Installation in leeren Ordner → Start per npx. Lädt ca. 300 MB, daher nur zwei Jobs.
+    # pack → install into an empty folder → start via npx. Downloads about 300 MB, so only two jobs.
     name: package (${{ matrix.os }})
     needs: check
     runs-on: ${{ matrix.os }}

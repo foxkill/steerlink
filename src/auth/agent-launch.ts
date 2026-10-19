@@ -7,12 +7,12 @@ export interface AgentLaunch {
     env: NodeJS.ProcessEnv;
 }
 
-/** Flag des Claude-Adapters, das jede Abrechnung über ein claude.ai-Abo verweigert. */
+/** Claude adapter flag that refuses any billing through a claude.ai subscription. */
 export const HIDE_CLAUDE_AUTH_FLAG = "--hide-claude-auth";
 
 const API_KEY_VARS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"] as const;
 const OAUTH_TOKEN_VAR = "CLAUDE_CODE_OAUTH_TOKEN";
-/** Abo-Zugangsdaten, die im api_key-Modus nie beim Agent ankommen dürfen. */
+/** Subscription credentials that must never reach the agent in api_key mode. */
 const SUBSCRIPTION_CREDENTIAL_VARS = [
     OAUTH_TOKEN_VAR,
     "CLAUDE_CODE_OAUTH_REFRESH_TOKEN",
@@ -20,16 +20,16 @@ const SUBSCRIPTION_CREDENTIAL_VARS = [
 ] as const;
 
 /**
- * Variablen, die eine umgebende Claude-Code-Sitzung selbst in ihre
- * Unterprozesse setzt (laut https://code.claude.com/docs/en/env-vars:
- * "set automatically" bzw. "set by Claude Code"), plus interne Marker ohne
- * Doku. Würden sie vererbt, hielte sich der gestartete Claude-Prozess für eine
- * verschachtelte Sitzung oder spräche mit dem Socket der fremden Sitzung.
+ * Variables that an enclosing Claude Code session sets in its own
+ * subprocesses (per https://code.claude.com/docs/en/env-vars: "set
+ * automatically" or "set by Claude Code"), plus undocumented internal
+ * markers. If they were inherited, the launched Claude process would think it
+ * is a nested session or would talk to the other session's socket.
  *
- * Bewusst eine feste Liste statt aller `CLAUDE_CODE_*`: Die meisten dieser
- * Variablen sind Einstellungen des Nutzers (z. B. CLAUDE_CODE_GIT_BASH_PATH,
- * ohne den Claude Code unter Windows kein Git Bash findet, oder
- * CLAUDE_CODE_USE_BEDROCK) und müssen beim Agent ankommen.
+ * Deliberately a fixed list instead of all `CLAUDE_CODE_*`: most of those
+ * variables are user settings (e.g. CLAUDE_CODE_GIT_BASH_PATH, without which
+ * Claude Code cannot find Git Bash on Windows, or CLAUDE_CODE_USE_BEDROCK)
+ * and must reach the agent.
  */
 export const PARENT_SESSION_VARS: ReadonlySet<string> = new Set([
     "CLAUDECODE",
@@ -60,28 +60,28 @@ function missingApiKeyMessage(env: NodeJS.ProcessEnv): string {
     const raw = env.ANTHROPIC_API_KEY;
     if (typeof raw === "string" && isUnexpandedPlaceholder(raw)) {
         return (
-            `auth_mode=api_key, aber ANTHROPIC_API_KEY ist der nicht ersetzte Platzhalter ${raw.trim()}. ` +
-            "Den eigenen Anthropic API Key in den Plugin-Einstellungen (Variable ANTHROPIC_API_KEY) eintragen."
+            `auth_mode=api_key, but ANTHROPIC_API_KEY is the unexpanded placeholder ${raw.trim()}. ` +
+            "Enter your own Anthropic API key in the plugin settings (variable ANTHROPIC_API_KEY)."
         );
     }
     return (
-        "auth_mode=api_key, aber ANTHROPIC_API_KEY ist nicht gesetzt. Key im env-Block der MCP-Konfiguration setzen " +
-        "oder bewusst ACP_CONNECTOR_AUTH_MODE=subscription wählen."
+        "auth_mode=api_key, but ANTHROPIC_API_KEY is not set. Set the key in the env block of the MCP configuration, " +
+        "or deliberately choose ACP_CONNECTOR_AUTH_MODE=subscription."
     );
 }
 
 export class AuthConfigError extends Error {}
 
 /**
- * Baut Kommando, Argumente und Umgebung für einen Agent-Prozess.
+ * Builds the command, arguments and environment for an agent process.
  *
- * Für `auth_profile: "claude"` gilt:
- * - `api_key` (Default): ANTHROPIC_API_KEY ist Pflicht, OAuth-Token und
- *   Refresh-Token werden entfernt und der Adapter läuft mit `--hide-claude-auth`, damit nie ein Abo
- *   bezahlt.
- * - `subscription`: API-Keys werden entfernt, damit der vorhandene
- *   Claude-Code-Login (bzw. ein geerbtes CLAUDE_CODE_OAUTH_TOKEN) greift. Der
- *   Connector liest, speichert oder loggt dieses Token nie.
+ * For `auth_profile: "claude"`:
+ * - `api_key` (default): ANTHROPIC_API_KEY is required, the OAuth token and
+ *   refresh token are removed, and the adapter runs with `--hide-claude-auth`
+ *   so that a subscription never pays.
+ * - `subscription`: API keys are removed so that the existing Claude Code
+ *   login (or an inherited CLAUDE_CODE_OAUTH_TOKEN) takes effect. The
+ *   connector never reads, stores or logs this token.
  */
 export function buildAgentLaunch(
     server: AgentServerConfig,
@@ -96,8 +96,8 @@ export function buildAgentLaunch(
     }
     Object.assign(merged, server.env);
 
-    // Nicht ersetzte Plugin-Platzhalter wie `${X}` sind keine Werte und dürfen
-    // den Agent nicht erreichen (er hielte sie sonst z. B. für einen API-Key).
+    // Unexpanded plugin placeholders like `${X}` are not values and must not
+    // reach the agent (it would otherwise take them for e.g. an API key).
     const env: NodeJS.ProcessEnv = {};
     for (const [name, value] of Object.entries(merged)) {
         if (!(typeof value === "string" && isUnexpandedPlaceholder(value))) {
@@ -132,7 +132,7 @@ export function buildAgentLaunch(
     return { command: server.command, args, env };
 }
 
-/** Sichtbare, geheimnisfreie Beschreibung der Anmeldequellen. */
+/** Visible, secret-free description of the credential sources. */
 export interface CredentialPresence {
     anthropic_api_key_set: boolean;
     claude_code_oauth_token_set: boolean;

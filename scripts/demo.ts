@@ -1,12 +1,13 @@
 /**
- * End-to-End-Beweis wie Grok Bot: MCP-Client startet den gebauten Connector
- * (dist/main.js) per stdio, der Connector startet claude-agent-acp per ACP.
+ * End-to-end proof, just like Grok Bot: an MCP client starts the built
+ * connector (dist/main.js) over stdio, and the connector starts
+ * claude-agent-acp over ACP.
  *
- * Ablauf: start_session(Temp-Ordner) → send_prompt → Freigabe erteilen →
- * get_session_updates bis idle → hello.txt prüfen.
+ * Flow: start_session(temp folder) → send_prompt → grant approval →
+ * get_session_updates until idle → check hello.txt.
  *
- * Aufruf: npm run build && npm run demo
- * Auth: ANTHROPIC_API_KEY (Default) oder bewusst ACP_CONNECTOR_AUTH_MODE=subscription.
+ * Usage: npm run build && npm run demo
+ * Auth: ANTHROPIC_API_KEY (default) or deliberately ACP_CONNECTOR_AUTH_MODE=subscription.
  */
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -16,7 +17,7 @@ import { join } from "node:path";
 import type { AuthStatusResult, TurnResult, UpdatesResult } from "../src/sessions/session-manager.js";
 import { ConnectorClient } from "../test/helpers/connector-client.js";
 
-const PROMPT = "Erzeuge hello.txt mit 'hi'";
+const PROMPT = "Create hello.txt containing 'hi'";
 const MAX_ROUNDS = 30;
 
 function log(label: string, value: string | object): void {
@@ -26,7 +27,7 @@ function log(label: string, value: string | object): void {
 async function main(): Promise<number> {
     const workDir = mkdtempSync(join(tmpdir(), "grokbot-acp-demo-"));
     const client = new ConnectorClient();
-    // Nur die zwei Connector-Variablen weiterreichen; Secrets kommen aus der Umgebung.
+    // Only pass the two connector variables on; secrets come from the environment.
     await client.connect({ ACP_CONNECTOR_AUTH_MODE: process.env.ACP_CONNECTOR_AUTH_MODE ?? "" }, true);
 
     try {
@@ -84,11 +85,11 @@ async function main(): Promise<number> {
             status = updates.data.status;
             lastTurn = updates.data.last_turn;
             console.log(
-                `… status=${status}, neue Events: ${updates.data.events.map((event) => event.type).join(", ") || "-"}`,
+                `… status=${status}, new events:${updates.data.events.map((event) => event.type).join(", ") || "-"}`,
             );
         }
 
-        log("letzter Turn", {
+        log("last turn", {
             status,
             stop_reason: lastTurn?.stop_reason,
             error: lastTurn?.error,
@@ -106,18 +107,18 @@ async function main(): Promise<number> {
         const file = join(workDir, "hello.txt");
         const exists = existsSync(file);
         const content = exists ? readFileSync(file, "utf8") : "";
-        log("Ergebnis", { file, exists, content, permissions_granted: granted });
+        log("result", { file, exists, content, permissions_granted: granted });
         return exists && content.trim() === "hi" && granted > 0 ? 0 : 1;
     } finally {
         await client.close();
-        // Asynchron: ein synchrones rmSync blockiert mit seinen Wiederholungen die Event-Loop.
+        // Asynchronous: a synchronous rmSync blocks the event loop with its retries.
         await rm(workDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
     }
 }
 
 try {
     const code = await main();
-    console.log(code === 0 ? "\nDEMO OK" : "\nDEMO FEHLGESCHLAGEN");
+    console.log(code === 0 ? "\nDEMO OK" : "\nDEMO FAILED");
     process.exit(code);
 } catch (error) {
     console.error(error instanceof Error ? error.message : error);

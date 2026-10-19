@@ -3,10 +3,10 @@ import { spawnSync, type ChildProcess } from "node:child_process";
 const IS_WINDOWS = process.platform === "win32";
 
 /**
- * Ob ein Agent-Prozess eine eigene Prozessgruppe bekommt. Nur unter POSIX:
- * Dann lässt sich der ganze Baum (Adapter plus z. B. die Claude-Binary) über
- * die Gruppe beenden. Unter Windows würde `detached` ein eigenes
- * Konsolenfenster öffnen; dort beendet `taskkill /T` den Baum.
+ * Whether an agent process gets its own process group. POSIX only: there the
+ * whole tree (the adapter plus e.g. the Claude binary) can be killed via the
+ * group. On Windows `detached` would open a separate console window; there
+ * `taskkill /T` kills the tree.
  */
 export const SPAWN_IN_OWN_PROCESS_GROUP = !IS_WINDOWS;
 
@@ -16,7 +16,7 @@ function isRunning(child: ChildProcess): boolean {
 
 function signalProcessGroup(pid: number): boolean {
     try {
-        // Negative PID: das Signal geht an die ganze Prozessgruppe.
+        // Negative PID: the signal goes to the whole process group.
         process.kill(-pid, "SIGKILL");
         return true;
     } catch {
@@ -25,9 +25,9 @@ function signalProcessGroup(pid: number): boolean {
 }
 
 /**
- * Beendet einen laufenden Kindprozess samt allen Nachfahren sofort.
- * `child.kill()` allein trifft nur den direkten Kindprozess; dessen eigene
- * Kinder (etwa die native Claude-Binary) liefen sonst verwaist weiter.
+ * Immediately kills a running child process along with all its descendants.
+ * `child.kill()` alone only hits the direct child; its own children (such as
+ * the native Claude binary) would otherwise keep running as orphans.
  */
 export function killProcessTree(child: ChildProcess): void {
     const { pid } = child;
@@ -44,11 +44,10 @@ export function killProcessTree(child: ChildProcess): void {
 }
 
 /**
- * Räumt nach dem Ende eines Kindprozesses dessen übrig gebliebene Nachfahren
- * ab. Geht nur unter POSIX, solange die Prozessgruppe existiert. Unter
- * Windows ist der Baum nach dem Ende des Elternprozesses nicht mehr
- * auffindbar, und ein `taskkill` auf die PID könnte einen fremden Prozess
- * treffen, der sie inzwischen bekommen hat.
+ * Cleans up a child process's leftover descendants after it has exited. Only
+ * works on POSIX, as long as the process group still exists. On Windows the
+ * tree can no longer be found once the parent has exited, and a `taskkill`
+ * on the PID could hit an unrelated process that has since been given it.
  */
 export function killOrphanedDescendants(child: ChildProcess): void {
     const { pid } = child;

@@ -18,7 +18,7 @@ import type { AgentLaunch } from "../auth/agent-launch.js";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import { killOrphanedDescendants, killProcessTree, SPAWN_IN_OWN_PROCESS_GROUP } from "./process-tree.js";
 
-/** Vom Agent gemeldete Identität, ohne E-Mail, Organisation oder sonstige Details. */
+/** Identity reported by the agent, without email, organization or other details. */
 export interface AgentReportedAuth {
     kind: string;
     label: string;
@@ -35,10 +35,10 @@ interface AuthStatusPayload {
     };
 }
 
-/** Methode, über die der Claude-Adapter seine Identität pusht (`_meta`-Erweiterung). */
+/** Method the Claude adapter uses to push its identity (`_meta` extension). */
 export const AUTH_STATUS_UPDATE_METHOD = "_auth/status_update";
 
-/** Nur bei diesen Arten ist `detail` sicher (z. B. "ANTHROPIC_API_KEY", Gateway-Host). */
+/** `detail` is only safe for these kinds (e.g. "ANTHROPIC_API_KEY", gateway host). */
 const KINDS_WITH_SAFE_DETAIL = new Set(["api_key", "gateway", "external"]);
 
 export function sanitizeAuthStatus(payload: AuthStatusPayload): AgentReportedAuth | undefined {
@@ -68,18 +68,17 @@ export interface AgentEventSink {
 const STDERR_TAIL_LINES = 40;
 
 /**
- * Wie lange ein Agent nach dem Schließen von stdin Zeit hat, sich selbst zu
- * beenden, bevor der Prozessbaum hart beendet wird. MCP-Hosts geben dem
- * Connector nach dem Schließen seines stdin selbst nur rund 2 s (das
- * offizielle SDK: 2 s, dann SIGTERM, das unter Windows sofort beendet). Das
- * Herunterfahren muss deshalb sicher darunter bleiben, sonst bleiben Agents
- * verwaist zurück.
+ * How long an agent has to exit on its own after stdin is closed before its
+ * process tree is killed. MCP hosts themselves give the connector only about
+ * 2 s after closing its stdin (the official SDK: 2 s, then SIGTERM, which
+ * terminates immediately on Windows). Shutdown must therefore stay safely
+ * below that, or agents are left behind orphaned.
  */
 export const STOP_GRACE_MS = 1500;
 
 /**
- * Ein laufender ACP-Agent-Prozess (z. B. claude-agent-acp) mit seiner
- * Client-seitigen ACP-Verbindung. Mehrere Sessions teilen sich einen Prozess.
+ * A running ACP agent process (e.g. claude-agent-acp) with its client-side
+ * ACP connection. Several sessions share one process.
  */
 export class AgentProcess {
     readonly name: string;
@@ -106,7 +105,7 @@ export class AgentProcess {
 
     get agent(): ClientContext {
         if (!this.connection || this.exited) {
-            throw new Error(`Agent "${this.name}" läuft nicht`);
+            throw new Error(`Agent "${this.name}" is not running`);
         }
         return this.connection.agent;
     }
@@ -125,7 +124,7 @@ export class AgentProcess {
                 resolve();
             });
             child.once("error", (error: Error) => {
-                reject(new Error(`Agent "${this.name}" konnte nicht gestartet werden: ${error.message}`));
+                reject(new Error(`Agent "${this.name}" could not be started: ${error.message}`));
             });
         });
 
@@ -139,14 +138,14 @@ export class AgentProcess {
             const tail = this.stderrTail.slice(-5).join("\n");
             this.sink.onAgentExit(
                 this.name,
-                `Agent-Prozess beendet (code=${code ?? "-"}, signal=${signal ?? "-"})${tail ? `\n${tail}` : ""}`,
+                `Agent process exited (code=${code ?? "-"}, signal=${signal ?? "-"})${tail ? `\n${tail}` : ""}`,
             );
         });
 
         await spawned;
 
-        // @types/node typisiert Readable.toWeb nur als ReadableStream<any>. stdout ohne
-        // setEncoding liefert Buffer, also Uint8Array – die Assertion ist damit korrekt.
+        // @types/node types Readable.toWeb only as ReadableStream<any>. stdout without
+        // setEncoding yields Buffer, i.e. Uint8Array, so the assertion is correct.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         const input = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>;
         const stream = ndJsonStream(Writable.toWeb(child.stdin), input);
@@ -178,8 +177,8 @@ export class AgentProcess {
         this.initializeResponse = await this.connection.agent.request(methods.agent.initialize, {
             protocolVersion: PROTOCOL_VERSION,
             clientCapabilities: {
-                // Nur damit der Agent seine Terminal-Login-Methoden auflistet. Der
-                // Connector führt sie nie selbst aus, sondern zeigt sie als Anleitung an.
+                // Only so the agent lists its terminal login methods. The connector
+                // never runs them itself; it only shows them as instructions.
                 auth: { terminal: true },
             },
             clientInfo: { name: PACKAGE_NAME, version: PACKAGE_VERSION },
@@ -187,7 +186,7 @@ export class AgentProcess {
         return this.initializeResponse;
     }
 
-    /** Wartet bis zu `timeoutMs` auf die erste Auth-Meldung des Agents. */
+    /** Waits up to `timeoutMs` for the agent's first auth report. */
     async waitForReportedAuth(timeoutMs: number): Promise<AgentReportedAuth | undefined> {
         if (this.reportedAuth) {
             return this.reportedAuth;
@@ -203,9 +202,10 @@ export class AgentProcess {
     }
 
     /**
-     * Beendet den Agent: zuerst sanft (stdin schließen), weil ein hartes Ende
-     * mitten in einem OAuth-Refresh ein verwaistes Lock hinterlassen kann. Wer
-     * nach `STOP_GRACE_MS` noch läuft, wird samt Kindprozessen beendet.
+     * Stops the agent: gently first (closing stdin), because a hard kill in
+     * the middle of an OAuth refresh can leave an orphaned lock behind. If it
+     * is still running after `STOP_GRACE_MS`, it is killed along with its
+     * child processes.
      */
     async stop(): Promise<void> {
         const child = this.child;
@@ -223,11 +223,11 @@ export class AgentProcess {
         }, STOP_GRACE_MS);
         await exited;
         clearTimeout(timer);
-        // Auch wenn der Adapter selbst ging: eigene Kinder (z. B. die Claude-Binary) nicht zurücklassen.
+        // Even if the adapter exited on its own: don't leave its children (e.g. the Claude binary) behind.
         killOrphanedDescendants(child);
     }
 
-    /** Sofortiges, synchrones Ende samt Kindprozessen, z. B. aus einem `exit`-Handler. */
+    /** Immediate, synchronous kill including child processes, e.g. from an `exit` handler. */
     kill(): void {
         if (this.child && !this.exited) {
             killProcessTree(this.child);

@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-/** Schnelle, hermetische Tests: kein Netz, keine Kosten, keine Anmeldung. */
+/** Fast, hermetic tests: no network, no cost, no sign-in. */
 export default defineConfig({
     test: {
         include: ["test/**/*.test.ts"],

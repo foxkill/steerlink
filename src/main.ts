@@ -7,8 +7,8 @@ import { PACKAGE_NAME, PACKAGE_VERSION } from "./package-info.js";
 import { SessionManager } from "./sessions/session-manager.js";
 
 async function main(): Promise<void> {
-    // stdout gehört allein dem MCP-Protokoll. Schreibt eine Bibliothek per
-    // console.log, landet das auf stderr statt im JSON-RPC-Strom.
+    // stdout belongs to the MCP protocol alone. If a library writes via
+    // console.log, it ends up on stderr instead of in the JSON-RPC stream.
     // oxlint-disable-next-line no-console
     console.log = console.error;
 
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
         await server.close();
         process.exit(0);
     };
-    // Letzte Sicherung, falls der Prozess anders endet (z. B. ein Fehler): keine verwaisten Agents.
+    // Last line of defense in case the process ends some other way (e.g. an error): no orphaned agents.
     process.on("exit", () => {
         manager.killAll();
     });
@@ -36,7 +36,7 @@ async function main(): Promise<void> {
 
     await server.connect(new StdioServerTransport());
     console.error(
-        `${PACKAGE_NAME} ${PACKAGE_VERSION} bereit (Agents: ${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`,
+        `${PACKAGE_NAME} ${PACKAGE_VERSION} ready (agents:${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`,
     );
 }
 

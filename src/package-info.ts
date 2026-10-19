@@ -8,9 +8,9 @@ const packageJsonSchema = z.object({
 });
 
 /**
- * Name und Version kommen aus package.json, damit MCP-Server, ACP-Client,
- * Plugin-Manifest und npm-Paket nie auseinanderlaufen. Der Pfad stimmt sowohl
- * für `src/` (tsx) als auch für `dist/` (Build und installiertes Paket).
+ * Name and version come from package.json so that the MCP server, ACP client,
+ * plugin manifest and npm package never drift apart. The path is correct for
+ * both `src/` (tsx) and `dist/` (build and installed package).
  */
 const packageJson = packageJsonSchema.parse(createRequire(import.meta.url)("../package.json"));
 

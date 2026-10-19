@@ -9,15 +9,15 @@ import type { AuthStatusResult, TurnResult, UpdatesResult } from "../../src/sess
 import { ConnectorClient } from "../helpers/connector-client.js";
 
 /**
- * Echter Smoke-Test gegen claude-agent-acp (`npm run test:smoke`). Läuft nur mit
- * vorhandener Anmeldung: ANTHROPIC_API_KEY (Default) oder bewusst
- * ACP_CONNECTOR_AUTH_MODE=subscription mit vorhandenem Claude-Code-Login.
+ * Real smoke test against claude-agent-acp (`npm run test:smoke`). Only runs with
+ * existing credentials: ANTHROPIC_API_KEY (default) or deliberately
+ * ACP_CONNECTOR_AUTH_MODE=subscription with an existing Claude Code login.
  */
 const authMode = process.env.ACP_CONNECTOR_AUTH_MODE ?? "";
 const hasAuth = Boolean(process.env.ANTHROPIC_API_KEY) || authMode === "subscription";
 const enabled = hasAuth;
 
-describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
+describe.skipIf(!enabled)("Smoke: connector → claude-agent-acp", () => {
     const client = new ConnectorClient();
     let workDir: string;
 
@@ -28,11 +28,11 @@ describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
 
     afterAll(async () => {
         await client.close();
-        // Asynchron: ein synchrones rmSync blockiert mit seinen Wiederholungen die Event-Loop.
+        // Asynchronous: a synchronous rmSync blocks the event loop with its retries.
         await rm(workDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
     });
 
-    it("auth_status zeigt die aktive Methode ohne Secrets", async () => {
+    it("auth_status shows the active method without secrets", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", {});
         expect(status.isError).toBe(false);
         expect(status.data.problem).toBeNull();
@@ -40,7 +40,7 @@ describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
         expect(status.text).not.toMatch(/sk-ant-|@/);
     });
 
-    it("erzeugt hello.txt erst nach Freigabe", { timeout: 300000 }, async () => {
+    it("creates hello.txt only after approval", { timeout: 300000 }, async () => {
         const session = await client.call<{ session_id: string; current_mode: string }>("start_session", {
             cwd: workDir,
             mode: "default",
@@ -50,13 +50,13 @@ describe.skipIf(!enabled)("Smoke: Connector → claude-agent-acp", () => {
 
         const turn = await client.call<TurnResult>("send_prompt", {
             session_id: sessionId,
-            text: "Erzeuge hello.txt mit 'hi'",
+            text: "Create hello.txt containing 'hi'",
             timeout_seconds: 180,
         });
         expect(turn.data.status).toBe("awaiting_permission");
         expect(existsSync(join(workDir, "hello.txt"))).toBe(false);
 
-        // Jede Freigabe erteilen, bis der Turn fertig ist.
+        // Grant every approval until the turn is finished.
         const lastTurn = await vi.waitFor(
             async () => {
                 const pending = await client.call<{ pending_permissions: Array<{ permission_id: string }> }>(

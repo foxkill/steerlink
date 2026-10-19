@@ -1,13 +1,13 @@
 /**
- * Minimaler ACP-Agent für Tests. Verhalten je nach Prompt:
- * - "write <datei> <inhalt>": fragt um Erlaubnis (außer im Modus acceptEdits)
- *   und schreibt die Datei ins Session-cwd.
- * - "slow": streamt Text, bis der Turn abgebrochen wird oder 3 s vergehen.
- * - sonst: antwortet mit einem Echo.
+ * Minimal ACP agent for tests. Behavior depends on the prompt:
+ * - "write <file> <content>": asks for permission (except in acceptEdits mode)
+ *   and writes the file into the session cwd.
+ * - "slow": streams text until the turn is cancelled or 3 s pass.
+ * - otherwise: replies with an echo.
  *
- * Mit FAKE_STUBBORN=1 benimmt sich der Agent wie ein Prozess, der beim
- * Herunterfahren hängt: Er ignoriert das Ende von stdin, startet einen
- * Enkelprozess und schreibt beide PIDs als JSON nach FAKE_PID_FILE.
+ * With FAKE_STUBBORN=1 the agent behaves like a process that hangs on
+ * shutdown: it ignores the end of stdin, starts a grandchild process and
+ * writes both PIDs as JSON to FAKE_PID_FILE.
  */
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -58,7 +58,7 @@ async function writeTurn(
 ): Promise<PromptResponse> {
     const path = join(session.cwd, file);
     const toolCallId = `call-${randomUUID()}`;
-    await say(client, sessionId, `Ich lege ${file} an.`);
+    await say(client, sessionId, `Creating ${file}.`);
     await client.notify(methods.client.session.update, {
         sessionId,
         update: {
@@ -91,7 +91,7 @@ async function writeTurn(
                 sessionId,
                 update: { sessionUpdate: "tool_call_update", toolCallId, status: "failed" },
             });
-            await say(client, sessionId, " Abgelehnt, nichts geschrieben.");
+            await say(client, sessionId, " Denied, nothing written.");
             return { stopReason: "end_turn" };
         }
     }
@@ -106,7 +106,7 @@ async function writeTurn(
             content: [{ type: "content", content: { type: "text", text: `File created at ${path}` } }],
         },
     });
-    await say(client, sessionId, ` Fertig: ${file} enthält '${content}'.`);
+    await say(client, sessionId, ` Done: ${file} contains '${content}'.`);
     return { stopReason: "end_turn" };
 }
 
@@ -124,7 +124,7 @@ async function slowTurn(client: AgentContext, sessionId: string, signal: AbortSi
 
 if (process.env.FAKE_STUBBORN === "1") {
     const grandchild = spawn(process.execPath, ["-e", "setInterval(() => {}, 1 << 30)"], { stdio: "ignore" });
-    // Hält den Prozess am Leben, auch wenn stdin endet.
+    // Keeps the process alive even when stdin ends.
     setInterval(() => {}, 1 << 30);
     writeFileSync(
         process.env.FAKE_PID_FILE ?? "fake-agent-pids.json",
@@ -139,8 +139,8 @@ const stream = ndJsonStream(
 
 agent({ name: "fake-agent" })
     .onRequest(methods.agent.initialize, (context) => {
-        // Wie claude-agent-acp: Identität per Erweiterungs-Notification, inkl. E-Mail,
-        // die der Connector herausfiltern muss.
+        // Like claude-agent-acp: identity via an extension notification, including an
+        // email address that the connector has to filter out.
         setTimeout(() => {
             void context.client.notify("_auth/status_update", {
                 authStatus: {
@@ -158,7 +158,7 @@ agent({ name: "fake-agent" })
                 {
                     id: "fake-login",
                     name: "Fake Login",
-                    description: "Interaktiver Login",
+                    description: "Interactive login",
                     type: "terminal",
                     args: ["--login"],
                 },

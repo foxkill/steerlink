@@ -1,8 +1,8 @@
 /**
- * Ein Wert wie `${ANTHROPIC_API_KEY}`: ein Platzhalter aus einer
- * Plugin-Konfiguration (mcp.json), den der Host nicht ersetzt hat, weil die
- * Variable nie gesetzt wurde. Er darf nie als echter Wert durchgehen. Erfasst
- * auch Host-Varianten wie `${env:NAME}` oder `${userHome}`.
+ * A value like `${ANTHROPIC_API_KEY}`: a placeholder from a plugin
+ * configuration (mcp.json) that the host did not expand because the variable
+ * was never set. It must never pass for a real value. Also covers host
+ * variants such as `${env:NAME}` or `${userHome}`.
  */
 const UNEXPANDED_PLACEHOLDER = /^\$\{[^{}\s]+\}$/;
 
@@ -10,7 +10,7 @@ export function isUnexpandedPlaceholder(value: string): boolean {
     return UNEXPANDED_PLACEHOLDER.test(value.trim());
 }
 
-/** Liest eine Variable; leere Werte und nicht ersetzte Platzhalter gelten als nicht gesetzt. */
+/** Reads a variable; empty values and unexpanded placeholders count as unset. */
 export function readEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
     const value = env[name];
     if (typeof value !== "string" || value.length === 0 || isUnexpandedPlaceholder(value)) {

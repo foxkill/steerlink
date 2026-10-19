@@ -15,7 +15,7 @@ interface StartSessionResult {
     available_modes: Array<{ id: string; name: string }>;
 }
 
-describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
+describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
     const client = new ConnectorClient();
     let workDir: string;
     let configDir: string;
@@ -47,7 +47,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         await rm(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
     });
 
-    it("bietet alle Tools an", async () => {
+    it("offers all tools", async () => {
         const names = await client.listToolNames();
         expect(names).toEqual(
             expect.arrayContaining([
@@ -67,7 +67,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         );
     });
 
-    it("listet Agents wie Zeds agent_servers", async () => {
+    it("lists agents like Zed's agent_servers", async () => {
         const result = await client.call<{ agents: AgentInfo[] }>("list_agents");
         const names = result.data.agents.map((agent) => agent.name);
         expect(names).toEqual(expect.arrayContaining(["claude", "fake"]));
@@ -76,7 +76,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(fake?.env_keys).toEqual(["FAKE_FLAG"]);
     });
 
-    it("Session → Prompt → Freigabe → Datei existiert", async () => {
+    it("session → prompt → approval → file exists", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
         expect(session.isError).toBe(false);
         expect(session.data.current_mode).toBe("default");
@@ -86,9 +86,9 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
             text: "write hello.txt hi",
         });
         expect(turn.data.status).toBe("awaiting_permission");
-        const permission = defined(turn.data.pending_permissions[0], "offene Freigabe");
+        const permission = defined(turn.data.pending_permissions[0], "pending permission");
         expect(permission.title).toBe("Write hello.txt");
-        expect(defined(turn.data.tool_calls[0], "Tool-Call").diffs[0]).toMatchObject({
+        expect(defined(turn.data.tool_calls[0], "tool call").diffs[0]).toMatchObject({
             new_text: "hi",
             old_text: null,
         });
@@ -122,23 +122,23 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
             },
             { timeout: 40_000, interval: 0 },
         );
-        // turn_end kommt genau einmal, und zwar im selben Abruf wie status=idle.
+        // turn_end arrives exactly once, in the same poll as status=idle.
         const withTurnEnd = polls.filter((poll) => poll.events.some((event) => event.type === "turn_end"));
         expect(withTurnEnd.map((poll) => poll.status)).toEqual(["idle"]);
         expect(updates.last_turn?.stop_reason).toBe("end_turn");
         expect(updates.last_turn?.tool_calls[0]?.status).toBe("completed");
-        expect(updates.last_turn?.response_text).toContain("Fertig");
+        expect(updates.last_turn?.response_text).toContain("Done");
         expect(readFileSync(join(workDir, "hello.txt"), "utf8")).toBe("hi");
     });
 
-    it("deny schreibt nichts", async () => {
+    it("deny writes nothing", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
         const turn = await client.call<TurnResult>("send_prompt", {
             session_id: session.data.session_id,
             text: "write denied.txt nope",
         });
         await client.call("respond_permission", {
-            permission_id: defined(turn.data.pending_permissions[0], "offene Freigabe").permission_id,
+            permission_id: defined(turn.data.pending_permissions[0], "pending permission").permission_id,
             decision: "deny",
         });
         const updates = await client.call<UpdatesResult>("get_session_updates", {
@@ -150,7 +150,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(existsSync(join(workDir, "denied.txt"))).toBe(false);
     });
 
-    it("acceptEdits braucht keine Freigabe", async () => {
+    it("acceptEdits needs no approval", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir, mode: "acceptEdits" });
         expect(session.data.current_mode).toBe("acceptEdits");
         const turn = await client.call<TurnResult>("send_prompt", {
@@ -161,7 +161,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(readFileSync(join(workDir, "auto.txt"), "utf8")).toBe("ok");
     });
 
-    it("wait=false blockiert nicht; Polling und cancel funktionieren", async () => {
+    it("wait=false does not block; polling and cancel work", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
         const started = Date.now();
         const turn = await client.call<TurnResult>("send_prompt", {
@@ -180,7 +180,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
 
         const second = await client.call<TurnResult>("send_prompt", {
             session_id: session.data.session_id,
-            text: "noch einer",
+            text: "one more",
         });
         expect(second.isError).toBe(true);
 
@@ -189,7 +189,7 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(cancelled.data.stop_reason).toBe("cancelled");
     });
 
-    it("cancel zieht offene Freigaben zurück", async () => {
+    it("cancel withdraws pending approvals", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
         const turn = await client.call<TurnResult>("send_prompt", {
             session_id: session.data.session_id,
@@ -202,22 +202,22 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(existsSync(join(workDir, "never.txt"))).toBe(false);
     });
 
-    it("close_session beendet die Session", async () => {
+    it("close_session ends the session", async () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: workDir });
         const closed = await client.call<{ closed: boolean }>("close_session", { session_id: session.data.session_id });
         expect(closed.data.closed).toBe(true);
-        const after = await client.call("send_prompt", { session_id: session.data.session_id, text: "hallo" });
+        const after = await client.call("send_prompt", { session_id: session.data.session_id, text: "hello" });
         expect(after.isError).toBe(true);
     });
 
-    it("auth_status meldet die Identität ohne E-Mail", async () => {
+    it("auth_status reports the identity without email", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "fake" });
         expect(status.data.agent_reported).toEqual({ kind: "account", label: "Fake Max", plan: "max" });
         expect(status.text).not.toContain("secret@example.com");
         expect(status.data.auth_methods.map((method) => method.id)).toEqual(["fake-login", "fake-agent-auth"]);
     });
 
-    it("authenticate: Terminal-Methode liefert nur den Befehl, Agent-Methode wird ausgeführt", async () => {
+    it("authenticate: terminal method only returns the command, agent method is executed", async () => {
         const terminal = await client.call<{ command: string }>("authenticate", {
             agent: "fake",
             method_id: "fake-login",
@@ -227,10 +227,10 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
             agent: "fake",
             method_id: "fake-agent-auth",
         });
-        expect(direct.data.result).toBe("authenticate erfolgreich");
+        expect(direct.data.result).toBe("authenticate succeeded");
     });
 
-    it("auth_status: api_key-Modus ohne Key startet Claude nicht", async () => {
+    it("auth_status: api_key mode without a key does not start Claude", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "claude" });
         expect(status.data.auth_mode).toBe("api_key");
         expect(status.data.hide_claude_auth).toBe(true);
@@ -240,8 +240,8 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
         expect(session.isError).toBe(true);
     });
 
-    it("lehnt relative cwd ab", async () => {
-        const session = await client.call("start_session", { cwd: "relativ/pfad" });
+    it("rejects a relative cwd", async () => {
+        const session = await client.call("start_session", { cwd: "relative/path" });
         expect(session.isError).toBe(true);
     });
 });

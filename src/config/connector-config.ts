@@ -7,33 +7,31 @@ import { z } from "zod";
 import { readEnv } from "./env.js";
 
 const authModeSchema = z.enum(["api_key", "subscription"], {
-    error: 'auth_mode muss "api_key" oder "subscription" sein',
+    error: 'auth_mode must be "api_key" or "subscription"',
 });
 
-/** Wie der Connector einen Claude-Agent anmeldet. */
+/** How the connector signs in a Claude agent. */
 export type AuthMode = z.infer<typeof authModeSchema>;
 
 /**
- * Ein ACP-Agent, analog zu Zeds `agent_servers`-Eintrag (`type`, `command`,
+ * An ACP agent, analogous to Zed's `agent_servers` entry (`type`, `command`,
  * `args`, `env`).
  */
 const agentServerSchema = z.object({
-    type: z.literal("custom", { error: 'nur "custom" wird unterstützt' }).default("custom"),
-    command: z.string({ error: "fehlt" }).min(1, { error: "fehlt" }),
-    args: z.array(z.string(), { error: "muss ein String-Array sein" }).default([]),
-    env: z
-        .record(z.string(), z.string({ error: "muss ein String sein" }), { error: "muss ein Objekt sein" })
-        .default({}),
+    type: z.literal("custom", { error: 'only "custom" is supported' }).default("custom"),
+    command: z.string({ error: "missing" }).min(1, { error: "missing" }),
+    args: z.array(z.string(), { error: "must be an array of strings" }).default([]),
+    env: z.record(z.string(), z.string({ error: "must be a string" }), { error: "must be an object" }).default({}),
     /**
-     * `claude`: der Agent ist der Claude-Code-Adapter. Dann setzt der Connector
-     * die Auth-Regeln aus `auth_mode` durch (Env bereinigen, `--hide-claude-auth`).
-     * `none`: Env und Args werden unverändert durchgereicht. Ohne Angabe gilt
-     * `claude` für den Namen `claude`, sonst `none`.
+     * `claude`: the agent is the Claude Code adapter. The connector then
+     * enforces the auth rules from `auth_mode` (cleaning the env, `--hide-claude-auth`).
+     * `none`: env and args are passed through unchanged. If omitted, `claude`
+     * applies to the name `claude`, otherwise `none`.
      */
-    auth_profile: z.enum(["claude", "none"], { error: 'muss "claude" oder "none" sein' }).optional(),
+    auth_profile: z.enum(["claude", "none"], { error: 'must be "claude" or "none"' }).optional(),
 });
 
-/** Inhalt der optionalen JSON-Datei aus `ACP_CONNECTOR_CONFIG`. */
+/** Contents of the optional JSON file from `ACP_CONNECTOR_CONFIG`. */
 const configFileSchema = z.object({
     default_agent: z.string().min(1).optional(),
     auth_mode: authModeSchema.optional(),
@@ -58,7 +56,7 @@ export const CONFIG_ENV_VAR = "ACP_CONNECTOR_CONFIG";
 export const AUTH_MODE_ENV_VAR = "ACP_CONNECTOR_AUTH_MODE";
 export const DEFAULT_AGENT_ENV_VAR = "ACP_CONNECTOR_DEFAULT_AGENT";
 
-/** Pfad zur `claude-agent-acp`-Binary aus den eigenen node_modules. */
+/** Path to the `claude-agent-acp` binary from our own node_modules. */
 export function resolveClaudeAgentAcpBin(): string {
     const require = createRequire(import.meta.url);
     const packageJsonPath = require.resolve("@agentclientprotocol/claude-agent-acp/package.json");
@@ -75,7 +73,7 @@ export function builtinClaudeAgent(): AgentServerConfig {
     };
 }
 
-/** Fehlermeldung mit Pfad je Problem, z. B. `agent_servers.codex.command: fehlt`. */
+/** Error message with a path per issue, e.g. `agent_servers.codex.command: missing`. */
 function describeIssues(error: z.ZodError): string {
     return error.issues
         .map((issue) => (issue.path.length > 0 ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
@@ -88,20 +86,20 @@ function readConfigFile(path: string): z.infer<typeof configFileSchema> {
         json = JSON.parse(readFileSync(path, "utf8"));
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`${CONFIG_ENV_VAR}: ${path} ist nicht lesbar oder kein JSON (${reason})`, { cause: error });
+        throw new Error(`${CONFIG_ENV_VAR}: ${path} is not readable or not JSON (${reason})`, { cause: error });
     }
     const parsed = configFileSchema.safeParse(json);
     if (!parsed.success) {
-        throw new Error(`${CONFIG_ENV_VAR}: ${path} ist ungültig: ${describeIssues(parsed.error)}`);
+        throw new Error(`${CONFIG_ENV_VAR}: ${path} is invalid: ${describeIssues(parsed.error)}`);
     }
     return parsed.data;
 }
 
 /**
- * Lädt die Konfiguration aus der JSON-Datei in `ACP_CONNECTOR_CONFIG`
- * (optional) und wendet die Env-Overrides an. Leere Werte und nicht ersetzte
- * Platzhalter (`${X}`) zählen dabei als nicht gesetzt. Ohne Datei gibt es genau den
- * eingebauten Agent `claude`. Default-Auth ist immer `api_key`.
+ * Loads the configuration from the JSON file in `ACP_CONNECTOR_CONFIG`
+ * (optional) and applies the env overrides. Empty values and unexpanded
+ * placeholders (`${X}`) count as unset. Without a file there is exactly the
+ * built-in agent `claude`. The default auth is always `api_key`.
  */
 export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): ConnectorConfig {
     const configPath = readEnv(env, CONFIG_ENV_VAR);
@@ -127,7 +125,7 @@ export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): Conne
 
     const defaultAgent = readEnv(env, DEFAULT_AGENT_ENV_VAR) ?? file.default_agent ?? "claude";
     if (!(defaultAgent in agentServers)) {
-        throw new Error(`default_agent "${defaultAgent}" ist nicht in agent_servers definiert`);
+        throw new Error(`default_agent "${defaultAgent}" is not defined in agent_servers`);
     }
 
     return { default_agent: defaultAgent, auth_mode: authMode, agent_servers: agentServers };

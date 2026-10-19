@@ -45,22 +45,22 @@ export interface ToolCallOutcome<T> {
     data: T;
 }
 
-/** MCP-Client, der den Connector als stdio-Subprozess startet – genau wie Grok Bot. */
+/** MCP client that starts the connector as a stdio subprocess, just like Grok Bot. */
 export class ConnectorClient {
     private readonly client = new Client({ name: "connector-test", version: "1.0.0" });
     private transport: StdioClientTransport | undefined;
 
     /**
-     * `isolated`: nur Systemvariablen erben (Pfade, Temp, Benutzerprofil, npm),
-     * damit Ergebnisse nicht von zufälligen Variablen des Entwicklers abhängen
-     * (z. B. ANTHROPIC_BASE_URL oder ein Claude-Code-Login-Token).
+     * `isolated`: inherit only system variables (paths, temp, user profile, npm)
+     * so that results don't depend on random variables in the developer's
+     * environment (e.g. ANTHROPIC_BASE_URL or a Claude Code login token).
      */
     async connect(env: Record<string, string>, useDist: boolean = false, isolated: boolean = false): Promise<void> {
         const args = useDist ? [join(root, "dist", "main.js")] : ["--import", "tsx", join(root, "src", "main.ts")];
         await this.connectCommand({ command: process.execPath, args, env, cwd: root, isolated });
     }
 
-    /** Startet einen beliebigen Befehl als Connector, z. B. `npx acp-agent-bridge` aus einer Installation. */
+    /** Starts any command as the connector, e.g. `npx acp-agent-bridge` from an installation. */
     async connectCommand(params: {
         command: string;
         args: string[];
@@ -84,7 +84,7 @@ export class ConnectorClient {
         await this.client.connect(this.transport);
     }
 
-    /** Name und Version, die der Connector beim MCP-`initialize` meldet. */
+    /** Name and version the connector reports during MCP `initialize`. */
     serverVersion(): { name: string; version: string } | undefined {
         return this.client.getServerVersion();
     }

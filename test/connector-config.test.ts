@@ -11,23 +11,23 @@ import { PACKAGE_NAME, PACKAGE_VERSION } from "../src/package-info.js";
 
 describe("readEnv / isUnexpandedPlaceholder", () => {
     it.each(["${X}", "${ANTHROPIC_API_KEY}", " ${_a1} ", "${env:ANTHROPIC_API_KEY}", "${userHome}", "${1X}"])(
-        "%s ist ein Platzhalter",
+        "%s is a placeholder",
         (value) => {
             expect(isUnexpandedPlaceholder(value)).toBe(true);
         },
     );
 
     it.each(["", "x", "$X", "${}", "${ X}", "prefix ${X}", "${X}${Y}", "sk-ant-${X}", "${X} suffix"])(
-        "%j ist kein Platzhalter",
+        "%j is not a placeholder",
         (value) => {
             expect(isUnexpandedPlaceholder(value)).toBe(false);
         },
     );
 
-    it("leer und Platzhalter gelten als nicht gesetzt", () => {
-        expect(readEnv({ A: "", B: "${B}", C: "wert" }, "A")).toBeUndefined();
-        expect(readEnv({ A: "", B: "${B}", C: "wert" }, "B")).toBeUndefined();
-        expect(readEnv({ A: "", B: "${B}", C: "wert" }, "C")).toBe("wert");
+    it("empty values and placeholders count as unset", () => {
+        expect(readEnv({ A: "", B: "${B}", C: "value" }, "A")).toBeUndefined();
+        expect(readEnv({ A: "", B: "${B}", C: "value" }, "B")).toBeUndefined();
+        expect(readEnv({ A: "", B: "${B}", C: "value" }, "C")).toBe("value");
         expect(readEnv({}, "D")).toBeUndefined();
     });
 });
@@ -38,14 +38,14 @@ describe("loadConnectorConfig", () => {
         rmSync(dir, { recursive: true, force: true });
     });
 
-    it("Default: nur claude, api_key", () => {
+    it("default: only claude, api_key", () => {
         const config = loadConnectorConfig({});
         expect(Object.keys(config.agent_servers)).toEqual(["claude"]);
         expect(config.default_agent).toBe("claude");
         expect(config.auth_mode).toBe("api_key");
     });
 
-    it("nicht ersetzte Platzhalter in ACP_CONNECTOR_* werden ignoriert", () => {
+    it("unexpanded placeholders in ACP_CONNECTOR_* are ignored", () => {
         const config = loadConnectorConfig({
             ACP_CONNECTOR_AUTH_MODE: "${ACP_CONNECTOR_AUTH_MODE}",
             ACP_CONNECTOR_DEFAULT_AGENT: "${AGENT}",
@@ -55,7 +55,7 @@ describe("loadConnectorConfig", () => {
         expect(config.default_agent).toBe("claude");
     });
 
-    it("Env-Override schlägt Datei, ungültiger Modus ist ein Fehler", () => {
+    it("env override beats the file, an invalid mode is an error", () => {
         const path = join(dir, "config.json");
         writeFileSync(
             path,
@@ -68,7 +68,7 @@ describe("loadConnectorConfig", () => {
         expect(() => loadConnectorConfig({ ACP_CONNECTOR_AUTH_MODE: "abo" })).toThrow(/auth_mode/);
     });
 
-    it("weitere Agents bekommen auth_profile none, unbekannter default_agent ist ein Fehler", () => {
+    it("additional agents get auth_profile none, an unknown default_agent is an error", () => {
         const path = join(dir, "agents.json");
         writeFileSync(
             path,
@@ -87,53 +87,50 @@ describe("loadConnectorConfig", () => {
             auth_profile: "none",
         });
         expect(() =>
-            loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path, ACP_CONNECTOR_DEFAULT_AGENT: "gibtsnicht" }),
+            loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path, ACP_CONNECTOR_DEFAULT_AGENT: "doesnotexist" }),
         ).toThrow(/default_agent/);
     });
 
     it.each([
-        [
-            { agent_servers: { x: { type: "stdio", command: "c" } } },
-            'agent_servers.x.type: nur "custom" wird unterstützt',
-        ],
-        [{ agent_servers: { x: {} } }, "agent_servers.x.command: fehlt"],
-        [{ agent_servers: { x: { command: "" } } }, "agent_servers.x.command: fehlt"],
+        [{ agent_servers: { x: { type: "stdio", command: "c" } } }, 'agent_servers.x.type: only "custom" is supported'],
+        [{ agent_servers: { x: {} } }, "agent_servers.x.command: missing"],
+        [{ agent_servers: { x: { command: "" } } }, "agent_servers.x.command: missing"],
         [{ agent_servers: { x: { command: "c", args: [1] } } }, "agent_servers.x.args.0:"],
-        [{ agent_servers: { x: { command: "c", env: { A: 1 } } } }, "agent_servers.x.env.A: muss ein String sein"],
+        [{ agent_servers: { x: { command: "c", env: { A: 1 } } } }, "agent_servers.x.env.A: must be a string"],
         [
             { agent_servers: { x: { command: "c", auth_profile: "openai" } } },
-            'agent_servers.x.auth_profile: muss "claude" oder "none" sein',
+            'agent_servers.x.auth_profile: must be "claude" or "none"',
         ],
-        [{ auth_mode: "abo" }, 'auth_mode: auth_mode muss "api_key" oder "subscription" sein'],
-    ])("lehnt ungültige Konfiguration mit genauem Pfad ab: %j", (raw, message) => {
+        [{ auth_mode: "abo" }, 'auth_mode: auth_mode must be "api_key" or "subscription"'],
+    ])("rejects invalid configuration with the exact path: %j", (raw, message) => {
         const path = join(dir, "invalid.json");
         writeFileSync(path, JSON.stringify(raw));
         expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path })).toThrow(message);
     });
 
-    it("meldet kaputtes JSON und fehlende Dateien mit Pfad", () => {
+    it("reports broken JSON and missing files with their path", () => {
         const path = join(dir, "broken.json");
-        writeFileSync(path, "{ kein json");
+        writeFileSync(path, "{ not json");
         expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path })).toThrow(
-            /broken\.json ist nicht lesbar oder kein JSON/,
+            /broken\.json is not readable or not JSON/,
         );
-        expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: join(dir, "fehlt.json") })).toThrow(
-            /fehlt\.json ist nicht lesbar/,
+        expect(() => loadConnectorConfig({ ACP_CONNECTOR_CONFIG: join(dir, "missing.json") })).toThrow(
+            /missing\.json is not readable/,
         );
     });
 
-    it("unbekannte Felder in der Datei werden ignoriert", () => {
+    it("unknown fields in the file are ignored", () => {
         const path = join(dir, "extra.json");
         writeFileSync(
             path,
-            JSON.stringify({ kommentar: "x", agent_servers: { codex: { command: "codex-acp", note: "y" } } }),
+            JSON.stringify({ comment: "x", agent_servers: { codex: { command: "codex-acp", note: "y" } } }),
         );
         expect(loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path }).agent_servers.codex?.command).toBe("codex-acp");
     });
 });
 
 describe("package-info", () => {
-    it("liest Name und Version aus package.json", () => {
+    it("reads name and version from package.json", () => {
         expect(PACKAGE_NAME).toBe(packageJson.name);
         expect(PACKAGE_VERSION).toBe(packageJson.version);
     });

@@ -1,6 +1,6 @@
 import type { PermissionOption, ToolCallContent, ToolCallLocation } from "@agentclientprotocol/sdk";
 
-/** Gekürzter Diff einer Datei, wie ihn ein Tool-Call meldet. */
+/** Truncated diff of a file, as reported by a tool call. */
 export interface DiffSummary {
     path: string;
     old_text: string | null;
@@ -54,7 +54,7 @@ export function truncate(text: string, max: number = MAX_TEXT): { text: string; 
     if (text.length <= max) {
         return { text, truncated: false };
     }
-    return { text: `${text.slice(0, max)}\n…[${text.length - max} Zeichen gekürzt]`, truncated: true };
+    return { text: `${text.slice(0, max)}\n…[${text.length - max} characters truncated]`, truncated: true };
 }
 
 function countLines(text: string | null | undefined): number {

@@ -24,18 +24,18 @@ function mcpWith(server: Record<string, unknown>): object {
     return { mcpServers: { demo: server } };
 }
 
-/** Kleinste Version, die eine Range zulässt (über alle `||`-Alternativen), als Zahl zum Vergleichen. */
+/** Lowest version a range allows (across all `||` alternatives), as a number for comparison. */
 function minVersion(range: string): number {
     return Math.min(
         ...range.split("||").map((alternative) => {
-            // Fehlende Teile (z. B. bei ">=22") zählen als 0.
+            // Missing parts (e.g. in ">=22") count as 0.
             const [, major = "0", minor = "0", patch = "0"] = /(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(alternative) ?? [];
             return Number(major) * 1e6 + Number(minor) * 1e3 + Number(patch);
         }),
     );
 }
 
-/** Toolnamen aus der Markdown-Tabelle `| \`tool\` | … |` eines Skills. */
+/** Tool names from a skill's Markdown table `| \`tool\` | … |`. */
 function toolsInSkillTable(markdown: string): string[] {
     return [...markdown.matchAll(/^\| `([a-z_]+)` \|/gm)].flatMap(([, name]) => (name === undefined ? [] : [name]));
 }
@@ -44,7 +44,7 @@ function byCodePoint(a: string, b: string): number {
     return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Ein minimales, gültiges Plugin; Tests überschreiben einzelne Dateien. */
+/** A minimal, valid plugin; tests override individual files. */
 function validPlugin(): Files {
     return {
         "package.json": { name: "demo-bridge", version: "1.2.3", license: "MIT" },
@@ -57,7 +57,7 @@ function validPlugin(): Files {
             logo: "assets/logo.svg",
             variables: {
                 type: "object",
-                properties: { API_KEY: { type: "string", title: "Key", description: "Eigener Key" } },
+                properties: { API_KEY: { type: "string", title: "Key", description: "Your own key" } },
                 required: ["API_KEY"],
             },
         },
@@ -92,47 +92,49 @@ describe("validatePlugin", () => {
         return validatePlugin(dir);
     }
 
-    it("das Plugin dieses Repos ist gültig; offen ist nur die Lizenzwahl", () => {
+    it("this repo's plugin is valid; only the license choice is open", () => {
         const result = validatePlugin(repoRoot);
         expect(result.errors).toEqual([]);
-        expect(result.warnings).toEqual([expect.stringContaining("keine offene Lizenz")]);
+        expect(result.warnings).toEqual([expect.stringContaining("no open-source license")]);
     });
 
-    it("das minimale Fixture ist fehler- und warnungsfrei", () => {
+    it("the minimal fixture has no errors and no warnings", () => {
         expect(check()).toEqual({ errors: [], warnings: [] });
     });
 
-    describe("keine Fehlalarme bei gültigen Varianten", () => {
+    describe("no false alarms for valid variants", () => {
         it.each([
-            ["Satzende nach der Version", "# Demo\n\nRun demo-bridge@1.2.3.\n"],
-            ["Komma und Klammer nach der Version", "# Demo\n\n(demo-bridge@1.2.3), demo-bridge@1.2.3, fertig\n"],
+            ["end of sentence after the version", "# Demo\n\nRun demo-bridge@1.2.3.\n"],
+            ["comma and parenthesis after the version", "# Demo\n\n(demo-bridge@1.2.3), demo-bridge@1.2.3, done\n"],
         ])("README: %s", (_label, readme) => {
             expect(check({ "README.md": readme }).errors).toEqual([]);
         });
 
         it.each([
-            ["stroke-width vor width", '<rect stroke-width="2" width="64" height="64" fill="#000"/>'],
-            ["100 % Breite und Höhe", '<rect width="100%" height="100%" fill="#000"/>'],
-        ])("Logo-Hintergrund: %s", (_label, rect) => {
+            ["stroke-width before width", '<rect stroke-width="2" width="64" height="64" fill="#000"/>'],
+            ["100% width and height", '<rect width="100%" height="100%" fill="#000"/>'],
+        ])("logo background: %s", (_label, rect) => {
             const svg = LOGO.replace('<rect width="64" height="64" fill="#000"/>', rect);
             expect(check({ "assets/logo.svg": svg }).errors).toEqual([]);
         });
 
-        it("Skill mit YAML-Blockskalar als Beschreibung", () => {
+        it("skill with a YAML block scalar as description", () => {
             const skill = "---\nname: do-things\ndescription: >-\n  Does things\n  in two lines.\n---\n";
             expect(check({ "skills/do-things/SKILL.md": skill }).errors).toEqual([]);
         });
 
-        it("Command ohne Frontmatter ist erlaubt, Regel ohne description nur eine Warnung", () => {
+        it("a command without frontmatter is allowed, a rule without description is only a warning", () => {
             const result = check({
                 "commands/deploy.md": "# Deploy\n",
                 "rules/style.mdc": "---\nalwaysApply: true\n---\nUse const.\n",
             });
             expect(result.errors).toEqual([]);
-            expect(result.warnings).toEqual([expect.stringMatching(/Regel rules\/style\.mdc: "description" fehlt/)]);
+            expect(result.warnings).toEqual([
+                expect.stringMatching(/Rule rules\/style\.mdc: "description" is missing/),
+            ]);
         });
 
-        it("Variablenname in Kleinbuchstaben ist nur eine Warnung", () => {
+        it("a lowercase variable name is only a warning", () => {
             const result = check({
                 ".cursor-plugin/plugin.json": manifestWith({
                     variables: { type: "object", properties: { apiKey: { type: "string", description: "x" } } },
@@ -145,11 +147,11 @@ describe("validatePlugin", () => {
             });
             expect(result.errors).toEqual([]);
             expect(result.warnings).toEqual([
-                expect.stringMatching(/"apiKey" sollte wie eine Umgebungsvariable heißen/),
+                expect.stringMatching(/"apiKey" should be named like an environment variable/),
             ]);
         });
 
-        it("absolute Logo-URL auf GitHub-User-Content", () => {
+        it("absolute logo URL on GitHub user content", () => {
             const result = check({
                 ".cursor-plugin/plugin.json": manifestWith({
                     logo: "https://raw.githubusercontent.com/o/r/main/logo.svg",
@@ -159,55 +161,51 @@ describe("validatePlugin", () => {
         });
     });
 
-    it("parseFrontmatter: `---mehr` schließt den Block nicht", () => {
-        expect(parseFrontmatter("---\nname: x\n---mehr\n")).toBeUndefined();
+    it("parseFrontmatter: `---more` does not close the block", () => {
+        expect(parseFrontmatter("---\nname: x\n---more\n")).toBeUndefined();
         expect(parseFrontmatter("---\nname: x\n---  \nText")?.fields).toEqual({ name: "x" });
     });
 
     it.each([
         [
-            "ungültiger Name",
+            "invalid name",
             { ".cursor-plugin/plugin.json": manifestWith({ name: "Demo_Bridge" }) },
-            /"name" muss kleingeschrieben/,
+            /"name" must be lowercase/,
         ],
+        ["unknown field", { ".cursor-plugin/plugin.json": manifestWith({ mcp: "mcp.json" }) }, /unknown field "mcp"/],
+        ["not SemVer", { ".cursor-plugin/plugin.json": manifestWith({ version: "1.2" }) }, /SemVer/],
         [
-            "unbekanntes Feld",
-            { ".cursor-plugin/plugin.json": manifestWith({ mcp: "mcp.json" }) },
-            /unbekanntes Feld "mcp"/,
-        ],
-        ["keine SemVer", { ".cursor-plugin/plugin.json": manifestWith({ version: "1.2" }) }, /SemVer/],
-        [
-            "leere Beschreibung",
+            "empty description",
             { ".cursor-plugin/plugin.json": manifestWith({ description: " " }) },
-            /"description" fehlt/,
+            /"description" is missing/,
         ],
         [
-            "Homepage ohne https",
+            "homepage without https",
             { ".cursor-plugin/plugin.json": manifestWith({ homepage: "http://example.com" }) },
-            /"homepage" muss eine https-URL/,
+            /"homepage" must be an https URL/,
         ],
         [
-            "Pfad mit ..",
+            "path with ..",
             { ".cursor-plugin/plugin.json": manifestWith({ logo: "../logo.svg" }) },
-            /unzulässigen Pfad "\.\.\/logo\.svg"/,
+            /invalid path "\.\.\/logo\.svg"/,
         ],
         [
-            "absoluter Pfad",
+            "absolute path",
             { ".cursor-plugin/plugin.json": manifestWith({ skills: "/skills" }) },
-            /unzulässigen Pfad "\/skills"/,
+            /invalid path "\/skills"/,
         ],
         [
-            "fehlender Pfad",
-            { ".cursor-plugin/plugin.json": manifestWith({ logo: "assets/fehlt.svg" }) },
-            /fehlenden Pfad "assets\/fehlt\.svg"/,
+            "missing path",
+            { ".cursor-plugin/plugin.json": manifestWith({ logo: "assets/missing.svg" }) },
+            /missing path "assets\/missing\.svg"/,
         ],
         [
-            "Logo-URL außerhalb von GitHub",
+            "logo URL outside GitHub",
             { ".cursor-plugin/plugin.json": manifestWith({ logo: "https://cdn.example.com/logo.svg" }) },
-            /GitHub-User-Content/,
+            /GitHub user content/,
         ],
         [
-            "unerlaubtes Schema-Schlüsselwort",
+            "disallowed schema keyword",
             {
                 ".cursor-plugin/plugin.json": manifestWith({
                     variables: {
@@ -216,10 +214,10 @@ describe("validatePlugin", () => {
                     },
                 }),
             },
-            /pattern ist kein zulässiges Schlüsselwort/,
+            /pattern is not an allowed keyword/,
         ],
         [
-            "required nennt unbekannte Variable",
+            "required names an unknown variable",
             {
                 ".cursor-plugin/plugin.json": manifestWith({
                     variables: {
@@ -229,42 +227,42 @@ describe("validatePlugin", () => {
                     },
                 }),
             },
-            /unbekannte Variable "TOKEN"/,
+            /unknown variable "TOKEN"/,
         ],
         [
-            "Variable ohne Beschreibung",
+            "variable without description",
             {
                 ".cursor-plugin/plugin.json": manifestWith({
                     variables: { type: "object", properties: { API_KEY: { type: "string" } } },
                 }),
             },
-            /braucht eine "description"/,
+            /needs a "description"/,
         ],
         [
-            "Version weicht von package.json ab",
+            "version differs from package.json",
             { "package.json": { name: "demo-bridge", version: "1.2.4", license: "MIT" } },
-            /package\.json aber 1\.2\.4/,
+            /but package\.json has 1\.2\.4/,
         ],
         [
-            "Lizenz weicht von package.json ab",
+            "license differs from package.json",
             { "package.json": { name: "demo-bridge", version: "1.2.3", license: "ISC" } },
-            /Lizenz MIT, package\.json aber ISC/,
+            /license MIT, but package\.json has ISC/,
         ],
-    ])("Manifest: %s", (_label, overrides, message) => {
+    ])("manifest: %s", (_label, overrides, message) => {
         expect(check(overrides as Files).errors).toEqual(expect.arrayContaining([expect.stringMatching(message)]));
     });
 
     it.each([
-        ["nicht quadratisch", LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 64 32"'), /quadratisch/],
-        ["ohne Hintergrundfläche", LOGO.replace('<rect width="64" height="64" fill="#000"/>', ""), /Hintergrundfläche/],
-        ["Hintergrund ohne Füllung", LOGO.replace('fill="#000"', 'fill="none"'), /Hintergrundfläche/],
-        ["mit Skript", LOGO.replace("</svg>", "<script>alert(1)</script></svg>"), /kein Skript/],
+        ["not square", LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 64 32"'), /square/],
+        ["without background", LOGO.replace('<rect width="64" height="64" fill="#000"/>', ""), /filled background/],
+        ["background without fill", LOGO.replace('fill="#000"', 'fill="none"'), /filled background/],
+        ["with script", LOGO.replace("</svg>", "<script>alert(1)</script></svg>"), /must not contain scripts/],
         [
-            "mit externer Ressource",
+            "with external resource",
             LOGO.replace("</svg>", '<image href="https://x.test/a.png"/></svg>'),
-            /externen Ressourcen/,
+            /external resources/,
         ],
-    ])("Logo: %s", (_label, svg, message) => {
+    ])("logo: %s", (_label, svg, message) => {
         expect(check({ "assets/logo.svg": svg }).errors).toEqual(
             expect.arrayContaining([expect.stringMatching(message)]),
         );
@@ -272,114 +270,112 @@ describe("validatePlugin", () => {
 
     it.each([
         [
-            "nicht deklarierter Platzhalter",
+            "undeclared placeholder",
             mcpWith({ command: "npx", args: ["-y", "demo-bridge@1.2.3"], env: { TOKEN: "${TOKEN}" } }),
-            /\$\{TOKEN\} ist nicht in plugin\.json/,
+            /\$\{TOKEN\} is not declared in plugin\.json/,
         ],
-        ["npx ohne Version", mcpWith({ command: "npx", args: ["-y", "demo-bridge"] }), /exakte Version/],
-        ["npx mit latest", mcpWith({ command: "npx", args: ["-y", "demo-bridge@latest"] }), /exakte Version/],
-        ["npx mit Range", mcpWith({ command: "npx", args: ["-y", "demo-bridge@^1.2.3"] }), /exakte Version/],
-        ["npx ohne -y", mcpWith({ command: "npx", args: ["demo-bridge@1.2.3"] }), /npx braucht "-y"/],
+        ["npx without version", mcpWith({ command: "npx", args: ["-y", "demo-bridge"] }), /exact version/],
+        ["npx with latest", mcpWith({ command: "npx", args: ["-y", "demo-bridge@latest"] }), /exact version/],
+        ["npx with range", mcpWith({ command: "npx", args: ["-y", "demo-bridge@^1.2.3"] }), /exact version/],
+        ["npx without -y", mcpWith({ command: "npx", args: ["demo-bridge@1.2.3"] }), /npx needs "-y"/],
         [
-            "npx mit alter Version",
+            "npx with old version",
             mcpWith({ command: "npx", args: ["-y", "demo-bridge@1.2.2"] }),
-            /package\.json hat aber Version 1\.2\.3/,
+            /package\.json has version 1\.2\.3/,
         ],
-        ["npx mit fremdem Paket", mcpWith({ command: "npx", args: ["-y", "other@1.2.3"] }), /startet "other"/],
-        ["command und url", mcpWith({ command: "x", url: "https://x.test/mcp" }), /genau eines von "command"/],
-        ["HTTP ohne https", mcpWith({ url: "http://x.test/mcp" }), /https-URL/],
-        ["stdio mit headers", mcpWith({ command: "x", headers: { A: "b" } }), /Feld "headers" passt nicht/],
-        ["env mit Zahl", mcpWith({ command: "x", env: { A: 1 } }), /"env" muss ein Objekt mit String-Werten/],
-        ["args kein Array", mcpWith({ command: "x", args: "-y" }), /"args" muss ein String-Array/],
-        ["absoluter command", mcpWith({ command: "/usr/bin/x" }), /absoluter Pfad/],
-        ["absoluter Windows-command", mcpWith({ command: "C:\\tools\\x.exe" }), /absoluter Pfad/],
+        ["npx with foreign package", mcpWith({ command: "npx", args: ["-y", "other@1.2.3"] }), /starts "other"/],
+        ["command and url", mcpWith({ command: "x", url: "https://x.test/mcp" }), /exactly one of "command"/],
+        ["HTTP without https", mcpWith({ url: "http://x.test/mcp" }), /https URL/],
+        ["stdio with headers", mcpWith({ command: "x", headers: { A: "b" } }), /field "headers" does not fit/],
+        ["env with number", mcpWith({ command: "x", env: { A: 1 } }), /"env" must be an object with string values/],
+        ["args not an array", mcpWith({ command: "x", args: "-y" }), /"args" must be a string array/],
+        ["absolute command", mcpWith({ command: "/usr/bin/x" }), /absolute path/],
+        ["absolute Windows command", mcpWith({ command: "C:\\tools\\x.exe" }), /absolute path/],
     ])("mcp.json: %s", (_label, mcp, message) => {
         expect(check({ "mcp.json": mcp }).errors).toEqual(expect.arrayContaining([expect.stringMatching(message)]));
     });
 
-    it("mcp.json: Servername mit __ ist für Grok Bot ungültig", () => {
+    it("mcp.json: a server name with __ is invalid for Grok Bot", () => {
         const result = check({ "mcp.json": { mcpServers: { a__b: { command: "x" } } } });
-        expect(result.errors).toEqual(expect.arrayContaining([expect.stringMatching(/ohne "__"/)]));
+        expect(result.errors).toEqual(expect.arrayContaining([expect.stringMatching(/must not contain "__"/)]));
     });
 
-    it("mcp.json: Host-Platzhalter brauchen keine Deklaration, unbenutzte Variablen sind eine Warnung", () => {
+    it("mcp.json: host placeholders need no declaration, unused variables are a warning", () => {
         const result = check({ "mcp.json": mcpWith({ command: "${CURSOR_PLUGIN_ROOT}/bin/server" }) });
         expect(result.errors).toEqual([]);
-        expect(result.warnings).toEqual([expect.stringMatching(/"API_KEY" wird in mcp\.json nicht verwendet/)]);
+        expect(result.warnings).toEqual([expect.stringMatching(/"API_KEY" is not used in mcp\.json/)]);
     });
 
     it.each([
-        ["ohne Frontmatter", "# Nur Text\n", /YAML-Frontmatter fehlt/],
-        ["ohne description", "---\nname: do-things\n---\n", /"description" fehlt/],
-        ["Name passt nicht zum Ordner", "---\nname: other\ndescription: x\n---\n", /Ordnernamen/],
-        ["Name nicht kebab-case", "---\nname: Do_Things\ndescription: x\n---\n", /kebab-case/],
-        [
-            "kaputte Zeile",
-            "---\nname: do-things\ndescription: x\nkein doppelpunkt\n---\n",
-            /ungültige Frontmatter-Zeile/,
-        ],
-        ["zu lange Beschreibung", `---\nname: do-things\ndescription: ${"x".repeat(1025)}\n---\n`, /1024/],
-    ])("Skill: %s", (_label, content, message) => {
+        ["without frontmatter", "# Just text\n", /YAML frontmatter is missing/],
+        ["without description", "---\nname: do-things\n---\n", /"description" is missing/],
+        ["name does not match the folder", "---\nname: other\ndescription: x\n---\n", /folder name/],
+        ["name not kebab-case", "---\nname: Do_Things\ndescription: x\n---\n", /kebab-case/],
+        ["broken line", "---\nname: do-things\ndescription: x\nno colon here\n---\n", /invalid frontmatter line/],
+        ["description too long", `---\nname: do-things\ndescription: ${"x".repeat(1025)}\n---\n`, /1024/],
+    ])("skill: %s", (_label, content, message) => {
         expect(check({ "skills/do-things/SKILL.md": content }).errors).toEqual(
             expect.arrayContaining([expect.stringMatching(message)]),
         );
     });
 
-    it("Skill-Ordner ohne SKILL.md ist ein Fehler", () => {
-        expect(check({ "skills/leer/notes.md": "x" }).errors).toEqual(
-            expect.arrayContaining([expect.stringMatching(/SKILL\.md fehlt/)]),
+    it("a skill folder without SKILL.md is an error", () => {
+        expect(check({ "skills/empty/notes.md": "x" }).errors).toEqual(
+            expect.arrayContaining([expect.stringMatching(/SKILL\.md is missing/)]),
         );
     });
 
-    it("README mit veralteter Paketversion oder anderer Vorabversion", () => {
+    it("README with an outdated package version or a different prerelease", () => {
         const result = check({
             "README.md":
-                "# Demo\n\n`npx -y demo-bridge@1.2.3` oder alt: demo-bridge@1.0.0. Beta: demo-bridge@1.2.3-beta.1\n",
+                "# Demo\n\n`npx -y demo-bridge@1.2.3` or old: demo-bridge@1.0.0. Beta: demo-bridge@1.2.3-beta.1\n",
         });
         expect(result.errors).toEqual([
-            expect.stringMatching(/README\.md nennt demo-bridge@1\.0\.0,/),
-            expect.stringMatching(/README\.md nennt demo-bridge@1\.2\.3-beta\.1,/),
+            expect.stringMatching(/README\.md mentions demo-bridge@1\.0\.0,/),
+            expect.stringMatching(/README\.md mentions demo-bridge@1\.2\.3-beta\.1,/),
         ]);
     });
 
-    it("Secrets werden auch in docs/ gefunden", () => {
+    it("secrets are also found in docs/", () => {
         const result = check({ "docs/setup.md": `token ghp_${"c".repeat(36)}\n` });
         expect(result.errors).toEqual([
-            expect.stringContaining("docs/setup.md: enthält vermutlich ein Secret (GitHub-Token)"),
+            expect.stringContaining("docs/setup.md: probably contains a secret (GitHub token)"),
         ]);
     });
 
-    it("README fehlt", () => {
+    it("README is missing", () => {
         expect(check({}, ["README.md"]).errors).toEqual(
-            expect.arrayContaining([expect.stringMatching(/README\.md fehlt/)]),
+            expect.arrayContaining([expect.stringMatching(/README\.md is missing/)]),
         );
     });
 
-    it("Manifest fehlt oder ist kaputt", () => {
-        expect(check({}, [".cursor-plugin/plugin.json"]).errors).toEqual([expect.stringMatching(/plugin\.json fehlt/)]);
-        expect(check({ ".cursor-plugin/plugin.json": "{kein json" }).errors).toEqual([
-            expect.stringMatching(/kein gültiges JSON/),
+    it("manifest is missing or broken", () => {
+        expect(check({}, [".cursor-plugin/plugin.json"]).errors).toEqual([
+            expect.stringMatching(/plugin\.json is missing/),
+        ]);
+        expect(check({ ".cursor-plugin/plugin.json": "{not json" }).errors).toEqual([
+            expect.stringMatching(/is not valid JSON/),
         ]);
     });
 
     it.each([
-        ["Anthropic-Key", `sk-ant-api03-${"a".repeat(40)}`],
-        ["GitHub-Token", `ghp_${"b".repeat(36)}`],
-        ["privater Schlüssel", "-----BEGIN OPENSSH PRIVATE KEY-----"],
-    ])("Secret im Plugin wird erkannt: %s", (label, secret) => {
+        ["Anthropic key", `sk-ant-api03-${"a".repeat(40)}`],
+        ["GitHub token", `ghp_${"b".repeat(36)}`],
+        ["private key", "-----BEGIN OPENSSH PRIVATE KEY-----"],
+    ])("a secret in the plugin is detected: %s", (label, secret) => {
         const result = check({ "README.md": `# Demo\n\nkey: ${secret}\n` });
         expect(result.errors).toEqual(
-            expect.arrayContaining([expect.stringContaining(`README.md: enthält vermutlich ein Secret (${label})`)]),
+            expect.arrayContaining([expect.stringContaining(`README.md: probably contains a secret (${label})`)]),
         );
     });
 });
 
-describe("Paket-Metadaten", () => {
+describe("package metadata", () => {
     const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as {
         engines: { node: string };
         dependencies: Record<string, string>;
     };
-    /** Abhängigkeiten, die selbst eine Node-Version verlangen. */
+    /** Dependencies that themselves require a Node version. */
     const nodeRequirements = Object.keys(pkg.dependencies).flatMap((name) => {
         const dependency = JSON.parse(
             readFileSync(join(repoRoot, "node_modules", ...name.split("/"), "package.json"), "utf8"),
@@ -388,28 +384,28 @@ describe("Paket-Metadaten", () => {
         return required === undefined ? [] : [[name, required] as const];
     });
 
-    it("minVersion versteht Alternativen und Teilversionen", () => {
+    it("minVersion understands alternatives and partial versions", () => {
         expect(minVersion(">=22")).toBe(22e6);
         expect(minVersion("^20.19 || >=22")).toBe(20e6 + 19e3);
         expect(minVersion("^20.0.0 || ^22.0.0 || >=24.0.0")).toBe(20e6);
     });
 
-    it.each(nodeRequirements)("engines.node verlangt mindestens, was %s verlangt (%s)", (_name, required) => {
+    it.each(nodeRequirements)("engines.node requires at least what %s requires (%s)", (_name, required) => {
         expect(minVersion(pkg.engines.node)).toBeGreaterThanOrEqual(minVersion(required));
     });
 
-    it("prüft mindestens claude-agent-acp", () => {
+    it("checks at least claude-agent-acp", () => {
         expect(nodeRequirements.map(([name]) => name)).toContain("@agentclientprotocol/claude-agent-acp");
     });
 });
 
-describe("Validator-Hilfsfunktionen", () => {
-    it("parseFrontmatter: gefaltete Zeilen, Anführungszeichen, CRLF und BOM", () => {
+describe("validator helpers", () => {
+    it("parseFrontmatter: folded lines, quotes, CRLF and BOM", () => {
         const parsed = parseFrontmatter(
-            '\uFEFF---\r\nname: "x"\r\ndescription: erste\r\n  zweite Zeile\r\n# Kommentar\r\n---\r\nText',
+            '\uFEFF---\r\nname: "x"\r\ndescription: first\r\n  second line\r\n# Comment\r\n---\r\nText',
         );
-        expect(parsed).toEqual({ fields: { name: "x", description: "erste zweite Zeile" }, invalidLines: [] });
-        expect(parseFrontmatter("kein frontmatter")).toBeUndefined();
+        expect(parsed).toEqual({ fields: { name: "x", description: "first second line" }, invalidLines: [] });
+        expect(parseFrontmatter("no frontmatter")).toBeUndefined();
         expect(parseFrontmatter("---\nname: x\n")).toBeUndefined();
     });
 
@@ -428,7 +424,7 @@ describe("Validator-Hilfsfunktionen", () => {
         expect(isSafeRelativePath(path)).toBe(expected);
     });
 
-    it("parsePackageSpec versteht Scopes", () => {
+    it("parsePackageSpec understands scopes", () => {
         expect(parsePackageSpec("acp-agent-bridge@0.1.0")).toEqual({ name: "acp-agent-bridge", version: "0.1.0" });
         expect(parsePackageSpec("@scope/pkg@1.0.0")).toEqual({ name: "@scope/pkg", version: "1.0.0" });
         expect(parsePackageSpec("@scope/pkg")).toEqual({ name: "@scope/pkg", version: undefined });
@@ -436,25 +432,25 @@ describe("Validator-Hilfsfunktionen", () => {
     });
 });
 
-describe("Plugin gegen den echten Connector", () => {
+describe("plugin against the real connector", () => {
     const skill = readFileSync(join(repoRoot, "skills", "delegate-to-coding-agent", "SKILL.md"), "utf8");
     const mcp = JSON.parse(readFileSync(join(repoRoot, "mcp.json"), "utf8")) as {
         mcpServers: Record<string, { env: Record<string, string> }>;
     };
-    const pluginEnv = defined(Object.values(mcp.mcpServers)[0], "Server in mcp.json").env;
+    const pluginEnv = defined(Object.values(mcp.mcpServers)[0], "server in mcp.json").env;
     const clients: ConnectorClient[] = [];
 
     async function connect(env: Record<string, string>): Promise<ConnectorClient> {
         const client = new ConnectorClient();
         clients.push(client);
-        // Wie der Host: nur die Werte aus mcp.json, ohne eigene Connector-Konfiguration.
+        // Like the host: only the values from mcp.json, without the connector's own configuration.
         await client.connect(env, false, true);
         return client;
     }
 
     let unset: ConnectorClient;
     beforeAll(async () => {
-        // Variable nicht gesetzt: Der Host reicht den Platzhalter unverändert durch.
+        // Variable not set: the host passes the placeholder through unchanged.
         unset = await connect(pluginEnv);
     });
 
@@ -462,29 +458,29 @@ describe("Plugin gegen den echten Connector", () => {
         await Promise.all(clients.map((client) => client.close()));
     });
 
-    it("die Tool-Tabelle im Skill entspricht genau tools/list", async () => {
+    it("the tool table in the skill matches tools/list exactly", async () => {
         const documented = toolsInSkillTable(skill).toSorted(byCodePoint);
         const offered = (await unset.listToolNames()).toSorted(byCodePoint);
         expect(documented).toEqual(offered);
     });
 
-    it("mcp.json setzt den API-Key-Modus und nur deklarierte Variablen", () => {
+    it("mcp.json sets the API key mode and only declared variables", () => {
         expect(pluginEnv.ACP_CONNECTOR_AUTH_MODE).toBe("api_key");
         expect(pluginEnv.ANTHROPIC_API_KEY).toBe("${ANTHROPIC_API_KEY}");
     });
 
-    it("nicht gesetzte Plugin-Variable: verständlicher Hinweis statt Fehlstart", async () => {
+    it("unset plugin variable: a clear hint instead of a failed start", async () => {
         const status = await unset.call<AuthStatusResult>("auth_status", {});
         expect(status.data.auth_mode).toBe("api_key");
         expect(status.data.credentials.anthropic_api_key_set).toBe(false);
-        expect(status.data.problem).toMatch(/Plugin-Einstellungen/);
+        expect(status.data.problem).toMatch(/plugin settings/);
 
         const session = await unset.call("start_session", { cwd: repoRoot });
         expect(session.isError).toBe(true);
-        expect(session.text).toMatch(/Plugin-Einstellungen \(Variable ANTHROPIC_API_KEY\)/);
+        expect(session.text).toMatch(/plugin settings \(variable ANTHROPIC_API_KEY\)/);
     });
 
-    it("gesetzte Plugin-Variable wird erkannt, ohne sie auszugeben", async () => {
+    it("a set plugin variable is detected without being printed", async () => {
         const key = "sk-test-not-a-real-key-123456";
         const client = await connect({ ...pluginEnv, ANTHROPIC_API_KEY: key });
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });

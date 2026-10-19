@@ -166,7 +166,7 @@
                 gap: 40px;
                 align-items: center;
             }
-            /* Grid- und Flex-Kinder dürfen schmaler werden als ihr längstes Wort. */
+            /* Let grid and flex children shrink below their longest word. */
             .hero-grid > *,
             .flow > *,
             .examples > *,
@@ -984,7 +984,7 @@
       { <span class="k">"option_id"</span>: <span class="s">"reject"</span>, <span class="k">"name"</span>: <span class="s">"Reject"</span>, <span class="k">"kind"</span>: <span class="s">"reject_once"</span> }
     ]
   }],
-  <span class="k">"hint"</span>: <span class="s">"Freigabe nötig: respond_permission …"</span>
+  <span class="k">"hint"</span>: <span class="s">"Agent is waiting for approval. Call respond_permission …"</span>
 }</pre>
                     </div>
                     <div class="example">
@@ -1021,9 +1021,9 @@
                         <pre class="block json">{
   <span class="k">"auth_mode"</span>: <span class="s">"api_key"</span>,
   <span class="k">"credentials"</span>: { <span class="k">"anthropic_api_key_set"</span>: false },
-  <span class="k">"problem"</span>: <span class="s">"… ANTHROPIC_API_KEY ist der nicht ersetzte
-    Platzhalter ${ANTHROPIC_API_KEY}. Den eigenen Anthropic API
-    Key in den Plugin-Einstellungen eintragen."</span>
+  <span class="k">"problem"</span>: <span class="s">"… ANTHROPIC_API_KEY is the unexpanded placeholder
+    ${ANTHROPIC_API_KEY}. Enter your own Anthropic API key
+    in the plugin settings."</span>
 }</pre>
                     </div>
                 </div>

@@ -1,9 +1,9 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * End-to-End-Tests, die nur gezielt laufen (`npm run test:package`,
- * `npm run test:smoke`): sie brauchen Netz (npm install) bzw. eine echte
- * Anmeldung bei Anthropic.
+ * End-to-end tests that only run on demand (`npm run test:package`,
+ * `npm run test:smoke`): they need network access (npm install) or real
+ * Anthropic credentials, respectively.
  */
 export default defineConfig({
     test: {

@@ -20,7 +20,7 @@ function isAlive(pid: number): boolean {
         process.kill(pid, 0);
         return true;
     } catch (error) {
-        // EPERM: der Prozess existiert, gehört aber jemand anderem.
+        // EPERM: the process exists but belongs to someone else.
         return error instanceof Error && "code" in error && error.code === "EPERM";
     }
 }
@@ -37,9 +37,9 @@ afterAll(async () => {
 });
 
 describe("killProcessTree", () => {
-    it("beendet einen Prozess samt Enkelprozess", async () => {
+    it("kills a process along with its grandchild", async () => {
         const pidFile = join(scratch, "tree.json");
-        // Elternprozess, der einen Enkel startet, dessen PID meldet und dann wartet.
+        // Parent process that starts a grandchild, reports its PID and then waits.
         const script = [
             'const { spawn } = require("node:child_process");',
             'const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1 << 30)"], { stdio: "ignore" });',
@@ -65,8 +65,8 @@ describe("killProcessTree", () => {
     });
 });
 
-describe("Herunterfahren des Connectors", () => {
-    it("lässt keinen Agent und keinen Enkelprozess zurück, auch wenn der Agent stdin ignoriert", async () => {
+describe("Connector shutdown", () => {
+    it("leaves no agent and no grandchild behind, even if the agent ignores stdin", async () => {
         const pidFile = join(scratch, "agent.json");
         const configPath = join(scratch, "config.json");
         writeFileSync(
@@ -95,7 +95,7 @@ describe("Herunterfahren des Connectors", () => {
         );
         expect([isAlive(pids.agent), isAlive(pids.grandchild)]).toEqual([true, true]);
 
-        // Wie ein MCP-Host: stdin schließen; nach 2 s käme SIGTERM.
+        // Like an MCP host: close stdin; SIGTERM would follow after 2 s.
         const started = Date.now();
         await client.close();
         const closeMs = Date.now() - started;
@@ -106,7 +106,7 @@ describe("Herunterfahren des Connectors", () => {
             },
             { timeout: 3_000, interval: 50 },
         );
-        // Der Connector beendet sich selbst, bevor der Client zu SIGTERM greifen muss.
+        // The connector exits on its own before the client has to resort to SIGTERM.
         expect(closeMs).toBeLessThan(2_000);
     });
 });

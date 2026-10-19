@@ -21,10 +21,10 @@ import { ConnectorClient, FAKE_AGENT_PATH, REPO_ROOT } from "../helpers/connecto
 import { defined } from "../helpers/defined.js";
 
 /**
- * Prüft das veröffentlichte Paket so, wie ein Host es nutzt (`npm run test:package`):
- * bauen, `npm pack`, Tarball in einen leeren Ordner installieren und die
- * installierte Binary über `npx` als MCP-Server starten. Braucht Netz für die
- * Abhängigkeiten (u. a. die native Claude-Binary des Agent SDK).
+ * Tests the published package the way a host uses it (`npm run test:package`):
+ * build, `npm pack`, install the tarball into an empty folder and start the
+ * installed binary as an MCP server via `npx`. Needs network access for the
+ * dependencies (including the Agent SDK's native Claude binary).
  */
 
 const packageJson = JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")) as {
@@ -93,10 +93,10 @@ function byCodePoint(a: string, b: string): number {
     return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Dateien, die npm neben `files` immer ins Paket legt. */
+/** Files that npm always packs in addition to `files`. */
 const ALWAYS_PACKED = ["README.md", "package.json", ...(existsSync(join(REPO_ROOT, "LICENSE")) ? ["LICENSE"] : [])];
 
-describe("npm-Paket: pack → install → npx", () => {
+describe("npm package: pack → install → npx", () => {
     const client = new ConnectorClient();
     const scratch = mkdtempSync(join(tmpdir(), "acp-package-test-"));
     const installDir = join(scratch, "host");
@@ -105,11 +105,11 @@ describe("npm-Paket: pack → install → npx", () => {
 
     beforeAll(async () => {
         npm(["run", "build"], REPO_ROOT);
-        // --ignore-scripts: der Build ist schon gelaufen, und Skript-Ausgaben würden das JSON verunreinigen.
+        // --ignore-scripts: the build has already run, and script output would pollute the JSON.
         const packed = JSON.parse(
             npm(["pack", "--json", "--ignore-scripts", "--pack-destination", scratch], REPO_ROOT),
         ) as PackResult[];
-        pack = defined(packed[0], "Ergebnis von npm pack");
+        pack = defined(packed[0], "npm pack result");
 
         mkdirSync(installDir, { recursive: true });
         mkdirSync(workDir, { recursive: true });
@@ -122,7 +122,7 @@ describe("npm-Paket: pack → install → npx", () => {
         const seconds = ((Date.now() - started) / 1000).toFixed(1);
         const megabytes = (directorySize(join(installDir, "node_modules")) / 1024 / 1024).toFixed(0);
         console.log(
-            `Installation: ${seconds} s, node_modules ${megabytes} MB (erster npx-Start beim Nutzer lädt ähnlich viel)`,
+            `Installation: ${seconds} s, node_modules ${megabytes} MB (a user's first npx start downloads about as much)`,
         );
 
         const configPath = join(scratch, "agents.json");
@@ -134,7 +134,7 @@ describe("npm-Paket: pack → install → npx", () => {
             }),
         );
 
-        // Wie im Plugin: npx startet die installierte Binary; --no-install verhindert einen Download.
+        // As in the plugin: npx starts the installed binary; --no-install prevents a download.
         await client.connectCommand({
             command: "npx",
             args: ["--no-install", packageJson.name],
@@ -144,7 +144,7 @@ describe("npm-Paket: pack → install → npx", () => {
                 ACP_CONNECTOR_CONFIG: configPath,
                 ACP_CONNECTOR_AUTH_MODE: "api_key",
                 ANTHROPIC_API_KEY: "sk-test-not-a-real-key-123456",
-                // Der Adapter soll keine Einstellungen im echten Benutzerprofil anfassen.
+                // The adapter must not touch any settings in the real user profile.
                 CLAUDE_CONFIG_DIR: join(scratch, "claude-config"),
             },
         });
@@ -155,7 +155,7 @@ describe("npm-Paket: pack → install → npx", () => {
         await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
     });
 
-    it("enthält genau den gebauten Code, keine Quellen, Tests, Source Maps oder Secrets", () => {
+    it("contains exactly the built code, no sources, tests, source maps or secrets", () => {
         const packed = pack.files.map((file) => file.path.replaceAll("\\", "/")).toSorted(byCodePoint);
         const built = listFiles(join(REPO_ROOT, "dist"))
             .filter((file) => file.endsWith(".js"))
@@ -164,20 +164,20 @@ describe("npm-Paket: pack → install → npx", () => {
         expect(readFileSync(join(REPO_ROOT, "dist", "main.js"), "utf8").startsWith("#!/usr/bin/env node\n")).toBe(true);
     });
 
-    it("meldet Name und Version aus package.json und bietet alle Tools an", async () => {
+    it("reports name and version from package.json and offers all tools", async () => {
         expect(client.serverVersion()).toEqual({ name: packageJson.name, version: packageJson.version });
         expect((await client.listToolNames()).toSorted(byCodePoint)).toEqual(EXPECTED_TOOLS);
     });
 
-    it("findet claude-agent-acp in der Installation, nicht im Repo", async () => {
+    it("finds claude-agent-acp in the installation, not in the repo", async () => {
         const agents = (await client.call<{ agents: AgentInfo[] }>("list_agents")).data.agents;
         const claude = agents.find((agent) => agent.name === "claude");
         const adapterDir = join(installDir, "node_modules", "@agentclientprotocol", "claude-agent-acp");
-        const entry = defined(claude?.args[0], "Startdatei von claude-agent-acp");
+        const entry = defined(claude?.args[0], "claude-agent-acp entry file");
         expect(samePath(join(entry, "..", ".."), adapterDir)).toBe(true);
     });
 
-    it("startet den echten Claude-Adapter aus der Installation", async () => {
+    it("starts the real Claude adapter from the installation", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { agent: "claude" });
         expect(status.data.problem).toBeNull();
         expect(status.data.hide_claude_auth).toBe(true);
@@ -189,7 +189,7 @@ describe("npm-Paket: pack → install → npx", () => {
         expect(claude?.agent_info?.name).toBeTruthy();
     });
 
-    it("führt eine Session über die installierte Binary aus", async () => {
+    it("runs a session through the installed binary", async () => {
         const session = await client.call<{ session_id: string }>("start_session", {
             cwd: workDir,
             agent: "fake",
