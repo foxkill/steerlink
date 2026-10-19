@@ -2,7 +2,7 @@
 
 ## What the project is
 
-`steerlink` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 22) that lets an MCP
+`steerlink` (repo `grokbot-acp-connector`) is an MCP server (stdio, TypeScript, Node ≥ 20.19) that lets an MCP
 host such as Grok Bot drive coding agents, the way Zed does as an ACP client. Upstream it speaks MCP; downstream it
 starts `@agentclientprotocol/claude-agent-acp` (or other ACP agents such as codex-acp) as a subprocess.
 
@@ -28,7 +28,8 @@ what still needs to be decided first is described in `docs/marketplace-submissio
   never reach the agent, and produce a clear message ("enter it in the plugin settings").
 - **npm package** prepared: only `dist/**/*.js`, `bin`, build in `prepack`, `prepublishOnly` with all checks;
   MIT license; `private: true` until the name is final and the package is published.
-- **Fix:** `engines.node` was `>=20`, but `claude-agent-acp` requires Node ≥ 22. Now `>=22`; a test checks this
+- **Node:** `engines.node` is `>=20.19`, because Grok Bot's computer ships Node 20. `claude-agent-acp` declares
+  Node ≥ 22 but runs on Node 20 (full end-to-end flow verified on 20.20; CI tests Node 20); a test pins this exception
   against all dependencies from now on.
 
 ## Code quality and tooling

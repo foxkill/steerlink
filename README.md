@@ -41,7 +41,7 @@ the download has finished.
 
 ## Use it as a plain MCP server
 
-Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 22):
+Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20.19):
 
 ```json
 {

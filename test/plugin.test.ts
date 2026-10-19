@@ -397,12 +397,34 @@ describe("package metadata", () => {
         expect(minVersion("^20.0.0 || ^22.0.0 || >=24.0.0")).toBe(20e6);
     });
 
-    it.each(nodeRequirements)("engines.node requires at least what %s requires (%s)", (_name, required) => {
+    /**
+     * Dependencies whose declared Node minimum is stricter than ours, but which are verified to run on our minimum:
+     * the CI package job starts the real adapter on Node 20, and the full end-to-end flow (session, permission,
+     * file write) was run on Node 20.20 before 0.1.0. Hosts such as Grok Bot ship Node 20, so requiring 22 would
+     * make users upgrade Node first. The exact declared range is pinned here: when a dependency raises it, this test
+     * fails and the exception must be re-verified.
+     */
+    const VERIFIED_ON_OLDER_NODE: Record<string, string> = {
+        "@agentclientprotocol/claude-agent-acp": ">=22",
+    };
+
+    const regular = nodeRequirements.filter(([name]) => !(name in VERIFIED_ON_OLDER_NODE));
+    const excepted = nodeRequirements.filter(([name]) => name in VERIFIED_ON_OLDER_NODE);
+
+    it.each(regular)("engines.node requires at least what %s requires (%s)", (_name, required) => {
         expect(minVersion(pkg.engines.node)).toBeGreaterThanOrEqual(minVersion(required));
+    });
+
+    it.each(excepted)("%s still declares the verified range (%s)", (name, required) => {
+        expect(required).toBe(VERIFIED_ON_OLDER_NODE[name]);
     });
 
     it("checks at least claude-agent-acp", () => {
         expect(nodeRequirements.map(([name]) => name)).toContain("@agentclientprotocol/claude-agent-acp");
+    });
+
+    it("supports the Node version that Grok Bot's computer ships (20.19)", () => {
+        expect(minVersion(pkg.engines.node)).toBeLessThanOrEqual(20e6 + 19e3);
     });
 });
 

@@ -31,7 +31,8 @@ Grok Bot runs custom MCP servers on its own computer (Linux), not on your PC. As
 
 > Run on your computer: `node --version` and `npm install -g steerlink@0.1.0-rc.0`
 
-- Node.js must be **22 or newer**; if it is older, ask Grok Bot to install Node 22.
+- Node.js **20.19 or newer** is enough; Grok Bot's computer already has it. npm may print an `EBADENGINE` warning
+  for `claude-agent-acp` (it declares Node 22); it runs fine on Node 20.
 - The global install downloads about 300 MB once (the native Claude Code binary from Anthropic's Agent SDK). Doing it
   up front avoids a timeout on the server's first start.
 
