@@ -91,6 +91,10 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
     let updates: UpdatesResult | undefined;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       updates = (await client.call<UpdatesResult>("get_session_updates", { session_id: session.data.session_id, wait_seconds: 2 })).data;
+      if (updates.events.some((event) => event.type === "turn_end")) {
+        // turn_end und status=idle kommen im selben Abruf an.
+        expect(updates.status).toBe("idle");
+      }
       if (updates.status === "idle") break;
     }
     expect(updates?.status).toBe("idle");

@@ -291,16 +291,15 @@ export class SessionManager implements AgentEventSink {
     agentProcess.agent
       .request(methods.agent.session.prompt, { sessionId: session.id, prompt: [{ type: "text", text: params.text }] })
       .then((response) => {
+        // Erst abschließen, dann melden: wer turn_end sieht, sieht auch status=idle.
         turn.stopReason = response.stopReason;
+        turn.finished = true;
         this.pushEvent(session, { seq: 0, type: "turn_end", stop_reason: response.stopReason });
       })
       .catch((error: unknown) => {
         turn.error = error instanceof Error ? error.message : JSON.stringify(error);
-        this.pushEvent(session, { seq: 0, type: "error", message: turn.error });
-      })
-      .finally(() => {
         turn.finished = true;
-        this.notify(session);
+        this.pushEvent(session, { seq: 0, type: "error", message: turn.error });
       });
 
     if (params.wait) {
