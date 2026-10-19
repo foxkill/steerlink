@@ -58,6 +58,26 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
 The server runs on the machine of the host — for Grok Bot that is *Grok Bot's computer*, so project paths refer to
 that machine.
 
+## Talk to it
+
+You do not call the tools yourself. Tell the bot in plain words, in any language, and it picks the tool:
+
+| You want to | Say to the bot | Tool it calls |
+|---|---|---|
+| See the agents | "List the steerlink agents" | `list_agents` |
+| Check the sign-in | "steerlink auth status" | `auth_status` |
+| See running sessions | "Which steerlink sessions are running?" | `list_sessions` |
+| See open approvals | "Any pending permissions?" | `list_pending_permissions` |
+| Stop the agent | "Cancel the Claude Code session" | `cancel` |
+| Finish | "Close the session" | `close_session` |
+
+A full task in one message:
+
+> Let Claude Code add input validation to the signup form in `/home/box/code/shop`, run the tests at the end, and
+> ask me before every change.
+
+The plugin ships no slash commands such as `/list-agents`; Grok Bot hides slash commands by default.
+
 ## Tools
 
 | Tool | Purpose |
