@@ -32,9 +32,9 @@ through it once end to end (see the testing instructions).
 
 ### Brief Description
 
-> Delegate coding tasks to ACP coding agents such as Claude Code. Grok Bot starts a session in a project, sends the
-> task, and asks you before every change — with the diff — so you approve or deny each edit and command. Bring your
-> own Anthropic API key; usage is billed to your own Anthropic account.
+> Steer and remote-control Claude Code from Grok Bot. Grok Bot starts a Claude Code session in a project, sends the
+> task, and asks you before every change — with the diff — so you approve or deny each edit and command. Also works
+> with Codex and other ACP coding agents. Bring your own Anthropic API key; usage is billed to your own account.
 
 ### Testing Instructions
 

@@ -2,16 +2,29 @@
     "name": "acp-agent-bridge",
     "version": "0.1.0",
     "private": true,
-    "description": "MCP server (stdio) that lets MCP hosts such as Grok Bot drive ACP coding agents like Claude Code or Codex",
+    "description": "MCP server that lets Grok Bot and other MCP hosts steer and remote-control Claude Code, Codex and other ACP coding agents, with approval of every change",
     "keywords": [
         "acp",
+        "agent client protocol",
         "agent-client-protocol",
+        "ai coding agent",
+        "approve changes",
+        "claude",
+        "claude code",
+        "claude code fernsteuern",
+        "claude code steuern",
         "claude-code",
+        "code review",
         "codex",
-        "coding-agent",
-        "grok-bot",
+        "coding agent",
+        "control claude code",
+        "delegate coding",
+        "grok bot",
         "mcp",
-        "model-context-protocol"
+        "model-context-protocol",
+        "pair programming",
+        "remote control claude code",
+        "steer claude code"
     ],
     "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
     "bugs": {
@@ -46,7 +59,8 @@
         "lint": "oxlint",
         "lint:fix": "oxlint --fix",
         "format": "oxfmt",
-        "format:check": "oxfmt --check"
+        "format:check": "oxfmt --check",
+        "plugin:local": "node --import tsx scripts/local-plugin.ts"
     },
     "dependencies": {
         "@agentclientprotocol/claude-agent-acp": "^0.93.0",

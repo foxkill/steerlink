@@ -1,9 +1,9 @@
 # ACP Agent Bridge
 
-An MCP server that lets an MCP host such as **Grok Bot** or **Cursor** delegate coding work to
-[ACP](https://agentclientprotocol.com) coding agents — Claude Code by default, plus any other ACP agent such as
-Codex. The host starts a session in a project, sends a task, and approves or denies every change the agent wants to
-make, with the diff in front of it.
+Steer and remote-control **Claude Code** from **Grok Bot**. ACP Agent Bridge is an MCP server that lets an MCP host
+such as Grok Bot or Cursor delegate coding work to [ACP](https://agentclientprotocol.com) coding agents — Claude Code
+by default, plus any other ACP agent such as Codex. The host starts a session in a project, sends a task, and approves
+or denies every change the agent wants to make, with the diff in front of it.
 
 ```
 MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ acp-agent-bridge ──ACP/stdio──▶ claude-agent-acp (Claude Code)

@@ -406,6 +406,38 @@ describe("package metadata", () => {
     });
 });
 
+describe("marketplace search", () => {
+    const manifest = JSON.parse(readFileSync(join(repoRoot, ".cursor-plugin", "plugin.json"), "utf8")) as {
+        name: string;
+        displayName: string;
+        description: string;
+        keywords: string[];
+    };
+    const searchable = [manifest.name, manifest.displayName, manifest.description, ...manifest.keywords]
+        .join(" | ")
+        .toLowerCase();
+
+    // What people type into "Connect apps" when they look for this plugin (English and German).
+    it.each([
+        "claude code",
+        "steer claude code",
+        "control claude code",
+        "remote control claude code",
+        "remote-control claude code",
+        "claude code steuern",
+        "claude code fernsteuern",
+        "codex",
+        "coding agent",
+        "grok bot",
+    ])("is found for %j", (query) => {
+        expect(searchable).toContain(query);
+    });
+
+    it("keeps Claude Code out of the product name (Anthropic trademark guidelines)", () => {
+        expect(`${manifest.name} ${manifest.displayName}`.toLowerCase()).not.toContain("claude");
+    });
+});
+
 describe("validator helpers", () => {
     it("parseFrontmatter: folded lines, quotes, CRLF and BOM", () => {
         const parsed = parseFrontmatter(

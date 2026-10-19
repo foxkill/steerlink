@@ -36,7 +36,7 @@ async function main(): Promise<void> {
 
     await server.connect(new StdioServerTransport());
     console.error(
-        `${PACKAGE_NAME} ${PACKAGE_VERSION} ready (agents:${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`,
+        `${PACKAGE_NAME} ${PACKAGE_VERSION} ready (agents: ${Object.keys(config.agent_servers).join(", ")}, auth_mode=${config.auth_mode})`,
     );
 }
 
