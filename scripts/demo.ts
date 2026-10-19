@@ -8,7 +8,8 @@
  * Aufruf: npm run build && npm run demo
  * Auth: ANTHROPIC_API_KEY (Default) oder bewusst ACP_CONNECTOR_AUTH_MODE=subscription.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -109,7 +110,8 @@ async function main(): Promise<number> {
         return exists && content.trim() === "hi" && granted > 0 ? 0 : 1;
     } finally {
         await client.close();
-        rmSync(workDir, { recursive: true, force: true, maxRetries: 40, retryDelay: 500 });
+        // Asynchron: ein synchrones rmSync blockiert mit seinen Wiederholungen die Event-Loop.
+        await rm(workDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
     }
 }
 

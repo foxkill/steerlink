@@ -1,11 +1,16 @@
-import { randomUUID } from "node:crypto";
 /**
  * Minimaler ACP-Agent für Tests. Verhalten je nach Prompt:
  * - "write <datei> <inhalt>": fragt um Erlaubnis (außer im Modus acceptEdits)
  *   und schreibt die Datei ins Session-cwd.
  * - "slow": streamt Text, bis der Turn abgebrochen wird oder 3 s vergehen.
  * - sonst: antwortet mit einem Echo.
+ *
+ * Mit FAKE_STUBBORN=1 benimmt sich der Agent wie ein Prozess, der beim
+ * Herunterfahren hängt: Er ignoriert das Ende von stdin, startet einen
+ * Enkelprozess und schreibt beide PIDs als JSON nach FAKE_PID_FILE.
  */
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
@@ -115,6 +120,16 @@ async function slowTurn(client: AgentContext, sessionId: string, signal: AbortSi
         return { stopReason: "cancelled" };
     }
     return { stopReason: "end_turn" };
+}
+
+if (process.env.FAKE_STUBBORN === "1") {
+    const grandchild = spawn(process.execPath, ["-e", "setInterval(() => {}, 1 << 30)"], { stdio: "ignore" });
+    // Hält den Prozess am Leben, auch wenn stdin endet.
+    setInterval(() => {}, 1 << 30);
+    writeFileSync(
+        process.env.FAKE_PID_FILE ?? "fake-agent-pids.json",
+        JSON.stringify({ agent: process.pid, grandchild: grandchild.pid }),
+    );
 }
 
 const stream = ndJsonStream(

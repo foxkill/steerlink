@@ -16,6 +16,7 @@ import {
 
 import type { AgentLaunch } from "../auth/agent-launch.js";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
+import { killOrphanedDescendants, killProcessTree, SPAWN_IN_OWN_PROCESS_GROUP } from "./process-tree.js";
 
 /** Vom Agent gemeldete Identität, ohne E-Mail, Organisation oder sonstige Details. */
 export interface AgentReportedAuth {
@@ -65,7 +66,16 @@ export interface AgentEventSink {
 }
 
 const STDERR_TAIL_LINES = 40;
-const STOP_GRACE_MS = 5000;
+
+/**
+ * Wie lange ein Agent nach dem Schließen von stdin Zeit hat, sich selbst zu
+ * beenden, bevor der Prozessbaum hart beendet wird. MCP-Hosts geben dem
+ * Connector nach dem Schließen seines stdin selbst nur rund 2 s (das
+ * offizielle SDK: 2 s, dann SIGTERM, das unter Windows sofort beendet). Das
+ * Herunterfahren muss deshalb sicher darunter bleiben, sonst bleiben Agents
+ * verwaist zurück.
+ */
+export const STOP_GRACE_MS = 1500;
 
 /**
  * Ein laufender ACP-Agent-Prozess (z. B. claude-agent-acp) mit seiner
@@ -105,6 +115,8 @@ export class AgentProcess {
         const child = spawn(this.launch.command, this.launch.args, {
             stdio: ["pipe", "pipe", "pipe"],
             env: this.launch.env,
+            detached: SPAWN_IN_OWN_PROCESS_GROUP,
+            windowsHide: true,
         });
         this.child = child;
 
@@ -191,8 +203,9 @@ export class AgentProcess {
     }
 
     /**
-     * Beendet den Agent sanft: stdin schließen und auf das Ende warten. Ein hartes
-     * Kill mitten in einem OAuth-Refresh kann ein verwaistes Lock hinterlassen.
+     * Beendet den Agent: zuerst sanft (stdin schließen), weil ein hartes Ende
+     * mitten in einem OAuth-Refresh ein verwaistes Lock hinterlassen kann. Wer
+     * nach `STOP_GRACE_MS` noch läuft, wird samt Kindprozessen beendet.
      */
     async stop(): Promise<void> {
         const child = this.child;
@@ -206,10 +219,19 @@ export class AgentProcess {
         });
         child.stdin.end();
         const timer = setTimeout(() => {
-            child.kill("SIGTERM");
+            killProcessTree(child);
         }, STOP_GRACE_MS);
         await exited;
         clearTimeout(timer);
+        // Auch wenn der Adapter selbst ging: eigene Kinder (z. B. die Claude-Binary) nicht zurücklassen.
+        killOrphanedDescendants(child);
+    }
+
+    /** Sofortiges, synchrones Ende samt Kindprozessen, z. B. aus einem `exit`-Handler. */
+    kill(): void {
+        if (this.child && !this.exited) {
+            killProcessTree(this.child);
+        }
     }
 
     private captureStderr(chunk: string): void {

@@ -47,11 +47,16 @@ eingereicht wird und was vorher noch zu entscheiden ist, steht in `docs/marketpl
 
 | Prüfung | Ergebnis |
 |---|---|
-| `npm run check` (Typprüfung, oxlint, oxfmt, 136 Tests, Plugin-Validator) | grün; 1 Warnung: Lizenz noch offen |
+| `npm run check` (Typprüfung, oxlint, oxfmt, 138 Tests, Plugin-Validator) | grün; 1 Warnung: Lizenz noch offen |
 | Validator aus `cursor/plugin-template` | bestanden |
 | `npm run test:package` (pack → Installation in leeren Ordner → Start per `npx` → echter Claude-Adapter → Session) | 5/5; Installation 16 s (warmer Cache), 303 MB |
 | `npm run test:smoke` gegen echtes Claude Code (Abo-Modus, Windows) | 2/2 |
 | Produktseite `site/` | geprüft in 1440 px, 375 px, hell und dunkel |
+
+Gefunden und behoben beim Herunterfahren: MCP-Hosts geben einem Server nach dem Schließen von stdin nur rund 2 s,
+der Connector wartete aber bis zu 5 s je Agent und wurde dann hart beendet. Jetzt: 1,5 s Gnadenfrist, danach wird
+der ganze Prozessbaum beendet (`taskkill /T` bzw. Prozessgruppe). `test/shutdown.test.ts` prüft das mit einem Agent,
+der stdin ignoriert und einen Enkelprozess startet; gegengeprüft mit dem alten Wert (Test schlägt fehl).
 
 Gefunden und behoben im echten Smoke-Test: Der Connector hatte alle `CLAUDE_CODE_*`-Variablen entfernt, auch
 `CLAUDE_CODE_GIT_BASH_PATH`. Unter Windows fand Claude Code deshalb kein Git Bash, ein Hook scheiterte und blockierte

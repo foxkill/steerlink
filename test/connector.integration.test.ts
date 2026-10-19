@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,8 +43,8 @@ describe("Connector mit Fake-ACP-Agent (MCP → Connector → ACP)", () => {
 
     afterAll(async () => {
         await client.close();
-        rmSync(configDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
-        rmSync(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        await rm(configDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+        await rm(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
     });
 
     it("bietet alle Tools an", async () => {

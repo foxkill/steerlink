@@ -26,6 +26,10 @@ async function main(): Promise<void> {
         await server.close();
         process.exit(0);
     };
+    // Letzte Sicherung, falls der Prozess anders endet (z. B. ein Fehler): keine verwaisten Agents.
+    process.on("exit", () => {
+        manager.killAll();
+    });
     process.on("SIGINT", () => void shutdown());
     process.on("SIGTERM", () => void shutdown());
     process.stdin.on("close", () => void shutdown());

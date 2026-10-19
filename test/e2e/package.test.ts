@@ -6,10 +6,10 @@ import {
     readdirSync,
     readFileSync,
     realpathSync,
-    rmSync,
     statSync,
     writeFileSync,
 } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -152,7 +152,7 @@ describe("npm-Paket: pack → install → npx", () => {
 
     afterAll(async () => {
         await client.close();
-        rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+        await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
     });
 
     it("enthält genau den gebauten Code, keine Quellen, Tests, Source Maps oder Secrets", () => {

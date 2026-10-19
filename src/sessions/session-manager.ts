@@ -742,6 +742,13 @@ export class SessionManager implements AgentEventSink {
         await Promise.all(processes.map((agentProcess) => agentProcess.stop()));
     }
 
+    /** Synchrones Notende aller Agents samt Kindprozessen (für `process.on("exit")`). */
+    killAll(): void {
+        for (const agentProcess of this.agents.values()) {
+            agentProcess.kill();
+        }
+    }
+
     // --------------------------------------------------------------- Helpers
 
     private cancelPendingPermissions(session: SessionState): void {
