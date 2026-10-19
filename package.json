@@ -25,15 +25,15 @@
         "remote control claude code",
         "steer claude code"
     ],
-    "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
+    "homepage": "https://github.com/foxkill/steerlink#readme",
     "bugs": {
-        "url": "https://github.com/foxkill/grokbot-acp-connector/issues"
+        "url": "https://github.com/foxkill/steerlink/issues"
     },
     "license": "MIT",
     "author": "Stefan Martin",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"
+        "url": "git+https://github.com/foxkill/steerlink.git"
     },
     "funding": {
         "type": "individual",

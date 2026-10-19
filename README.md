@@ -12,7 +12,7 @@ MCP host (Grok Bot, Cursor, …) ──MCP/stdio──▶ steerlink ──ACP/st
                                                                └─ACP/stdio──▶ other ACP agents (e.g. codex-acp)
 ```
 
-**Product page:** <https://foxkill.github.io/grokbot-acp-connector/> (source in `site/`, published by
+**Product page:** <https://foxkill.github.io/steerlink/> (source in `site/`, published by
 `.github/workflows/pages.yml`).
 
 The bridge plays the role an editor such as Zed plays for its external agents: it is the ACP client. The agents run
