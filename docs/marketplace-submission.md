@@ -9,11 +9,11 @@ These items are deliberately left undecided because they have legal or business 
 
 | Item | Status | What to do |
 |---|---|---|
-| License | `UNLICENSED` (in `package.json` and `plugin.json`) | Choose an open license (e.g. MIT), add `LICENSE`, enter it in both files. `npm run validate:plugin` warns until then. |
+| License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
 | Name | Working name `acp-agent-bridge` (npm name available on 2026-10-19) | Confirm or change: `package.json`, `plugin.json`, `mcp.json`, README. No "Claude", "Anthropic", "Grok" or "xAI" in the product name. |
 | npm release | `"private": true` prevents accidental publishing | Remove `private`, `npm login`, `npm publish`. `prepublishOnly` runs `check` and `test:package` first. |
 | Repo | `foxkill/grokbot-acp-connector` | Make it public; rename if needed (then update `homepage`, `repository`, `bugs`). |
-| Author | `foxkill` | Decide on name/email for the manifest and the form. |
+| Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
 | Donations | not set up | Optional: `"funding"` in `package.json`, `.github/FUNDING.yml`, link in the README (Buy Me a Coffee, GitHub Sponsors). |
 
 Then: `npm run check && npm run test:package`, tag the version, install the plugin locally in Grok Bot and run

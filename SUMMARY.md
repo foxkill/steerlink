@@ -27,7 +27,7 @@ what still needs to be decided first is described in `docs/marketplace-submissio
 - **Unexpanded plugin placeholders** (`${ANTHROPIC_API_KEY}` when the user has not set the variable) count as unset,
   never reach the agent, and produce a clear message ("enter it in the plugin settings").
 - **npm package** prepared: only `dist/**/*.js`, `bin`, build in `prepack`, `prepublishOnly` with all checks;
-  `private: true` until name and license are decided.
+  MIT license; `private: true` until the name is final and the package is published.
 - **Fix:** `engines.node` was `>=20`, but `claude-agent-acp` requires Node ≥ 22. Now `>=22`; a test checks this
   against all dependencies from now on.
 
@@ -45,7 +45,7 @@ what still needs to be decided first is described in `docs/marketplace-submissio
 
 | Check | Result |
 |---|---|
-| `npm run check` (type check, oxlint, oxfmt, 138 tests, plugin validator) | green; 1 warning: license still open |
+| `npm run check` (type check, oxlint, oxfmt, 138 tests, plugin validator) | green, no warnings |
 | Validator from `cursor/plugin-template` | passed |
 | `npm run test:package` (pack → install into an empty folder → start via `npx` → real Claude adapter → session) | 5/5; install 16 s (warm cache), 303 MB |
 | `npm run test:smoke` against real Claude Code (subscription mode, Windows) | 2/2 |
@@ -62,7 +62,7 @@ write. Now only the variables that a surrounding session sets itself are removed
 
 ## Open items
 
-- License, final name, author, npm release, public repo: decisions for the owner (see
+- Final name, npm release, public repo, donation links: decisions for the owner (see
   `docs/marketplace-submission.md`).
 - The first start downloads about 300 MB (the Agent SDK's native Claude Code binary); short host start timeouts can
   abort the first start.

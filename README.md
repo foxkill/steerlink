@@ -158,3 +158,7 @@ scripts/validate-plugin.ts      plugin validator
 test/                           tests (fake ACP agent in test/fixtures)
 test/e2e/                       package and smoke tests
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Stefan Martin

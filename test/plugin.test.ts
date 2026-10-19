@@ -92,8 +92,15 @@ describe("validatePlugin", () => {
         return validatePlugin(dir);
     }
 
-    it("this repo's plugin is valid; only the license choice is open", () => {
-        const result = validatePlugin(repoRoot);
+    it("this repo's plugin is valid without errors or warnings", () => {
+        expect(validatePlugin(repoRoot)).toEqual({ errors: [], warnings: [] });
+    });
+
+    it("warns when the plugin has no open-source license", () => {
+        const result = check({
+            "package.json": { name: "demo-bridge", version: "1.2.3", license: "UNLICENSED" },
+            ".cursor-plugin/plugin.json": manifestWith({ license: "UNLICENSED" }),
+        });
         expect(result.errors).toEqual([]);
         expect(result.warnings).toEqual([expect.stringContaining("no open-source license")]);
     });

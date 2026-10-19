@@ -17,7 +17,8 @@
     "bugs": {
         "url": "https://github.com/foxkill/grokbot-acp-connector/issues"
     },
-    "license": "UNLICENSED",
+    "license": "MIT",
+    "author": "Stefan Martin",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/foxkill/grokbot-acp-connector.git"

@@ -4,11 +4,11 @@
     "version": "0.1.0",
     "description": "Delegate coding tasks to ACP coding agents such as Claude Code: start a session in a project, review every diff, and approve or deny each change.",
     "author": {
-        "name": "foxkill"
+        "name": "Stefan Martin"
     },
     "homepage": "https://github.com/foxkill/grokbot-acp-connector#readme",
     "repository": "https://github.com/foxkill/grokbot-acp-connector",
-    "license": "UNLICENSED",
+    "license": "MIT",
     "keywords": ["acp", "agent-client-protocol", "coding-agent", "claude-code", "mcp", "code-review"],
     "logo": "assets/logo.svg",
     "variables": {
