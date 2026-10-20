@@ -48,6 +48,13 @@ If I want changes, send them as a follow-up send_prompt in the same session.
 - Do not show internal IDs (session_id, permission_id, tool_call_id) unless I ask.
 - If I say stop, call cancel.
 
+## Slash commands
+- start_session and list_sessions return available_commands: the slash commands this session accepts
+  (for example /compact). To run one, send it as the send_prompt text.
+- Never send a slash command that is not in that list. Terminal-only commands such as /rc (Remote Control)
+  never work through steerlink; tell me instead of trying.
+- In long sessions, suggest /compact (if listed) before the context gets too long.
+
 ## Secrets
 - Never ask me to paste a key or token into the chat, and never print one. Tokens come from 1Password or the MCP
   configuration.
