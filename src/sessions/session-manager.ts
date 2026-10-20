@@ -4,6 +4,7 @@ import { isAbsolute } from "node:path";
 import {
     methods,
     type AuthMethod,
+    type AvailableCommand,
     type RequestPermissionRequest,
     type RequestPermissionResponse,
     type SessionModeState,
@@ -25,6 +26,13 @@ import {
     type SessionEvent,
     type ToolCallSummary,
 } from "./session-events.js";
+
+/** A slash command the agent accepts in this session, sent as a prompt starting with `command`. */
+export interface SlashCommand {
+    command: string;
+    description: string;
+    input_hint: string | null;
+}
 
 export type SessionStatus = "idle" | "running" | "awaiting_permission" | "closed";
 export type PermissionDecision = "allow" | "allow_always" | "deny" | "deny_always";
@@ -49,6 +57,8 @@ interface SessionState {
     agentName: string;
     cwd: string;
     modes: SessionModeState | null;
+    /** Latest list from `available_commands_update`; null until the agent reports one. */
+    commands: SlashCommand[] | null;
     events: SessionEvent[];
     cursor: number;
     toolCalls: Map<string, ToolCallSummary>;
@@ -105,6 +115,20 @@ export interface AuthStatusResult {
 }
 
 const MAX_EVENTS = 2000;
+/**
+ * claude-agent-acp sends the session's slash commands right after the
+ * session/new response. start_session waits this long for them, so the host
+ * learns which commands work; agents that never send a list only cost the wait.
+ */
+const COMMANDS_WAIT_MS = 1500;
+
+function summarizeCommands(commands: AvailableCommand[]): SlashCommand[] {
+    return commands.map((command) => ({
+        command: `/${command.name}`,
+        description: command.description,
+        input_hint: command.input?.hint ?? null,
+    }));
+}
 
 type TerminalAuthMethod = Extract<AuthMethod, { type: "terminal" }>;
 
@@ -225,6 +249,7 @@ export class SessionManager implements AgentEventSink {
         cwd: string;
         current_mode: string | null;
         available_modes: Array<{ id: string; name: string }>;
+        available_commands: SlashCommand[] | null;
     }> {
         if (!isAbsolute(params.cwd)) {
             throw new Error("cwd must be an absolute path");
@@ -244,6 +269,7 @@ export class SessionManager implements AgentEventSink {
             agentName,
             cwd: params.cwd,
             modes: response.modes ?? null,
+            commands: null,
             events: [],
             cursor: 0,
             toolCalls: new Map(),
@@ -257,6 +283,7 @@ export class SessionManager implements AgentEventSink {
         if (params.mode && session.modes && session.modes.currentModeId !== params.mode) {
             await this.setMode(session.id, params.mode);
         }
+        await this.waitFor(session, () => session.commands !== null, COMMANDS_WAIT_MS);
 
         return {
             session_id: session.id,
@@ -264,6 +291,7 @@ export class SessionManager implements AgentEventSink {
             cwd: params.cwd,
             current_mode: session.modes?.currentModeId ?? null,
             available_modes: (session.modes?.availableModes ?? []).map((mode) => ({ id: mode.id, name: mode.name })),
+            available_commands: session.commands,
         };
     }
 
@@ -480,6 +508,7 @@ export class SessionManager implements AgentEventSink {
         status: SessionStatus;
         current_mode: string | null;
         turns: number;
+        available_commands: SlashCommand[] | null;
     }> {
         return [...this.sessions.values()].map((session) => ({
             session_id: session.id,
@@ -488,6 +517,7 @@ export class SessionManager implements AgentEventSink {
             status: this.status(session),
             current_mode: session.modes?.currentModeId ?? null,
             turns: session.turnCount,
+            available_commands: session.commands,
         }));
     }
 
@@ -689,8 +719,11 @@ export class SessionManager implements AgentEventSink {
                 }
                 this.pushEvent(session, { seq: 0, type: "mode", mode_id: update.currentModeId });
                 break;
-            case "user_message_chunk":
             case "available_commands_update":
+                session.commands = summarizeCommands(update.availableCommands);
+                this.notify(session);
+                break;
+            case "user_message_chunk":
             case "config_option_update":
             case "session_info_update":
             case "usage_update":
@@ -702,7 +735,7 @@ export class SessionManager implements AgentEventSink {
             case "subagent_update":
             case "session_message":
             case "session_message_chunk":
-                // Noise for the MCP host: input echo, command lists, usage numbers,
+                // Noise for the MCP host: input echo, usage numbers,
                 // metadata and variants the connector does not summarize (yet).
                 break;
             default: {

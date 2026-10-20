@@ -169,6 +169,21 @@ agent({ name: "fake-agent" })
     .onRequest(methods.agent.session.new, (context) => {
         const sessionId = randomUUID();
         sessions.set(sessionId, { cwd: context.params.cwd, mode: "default", abort: null });
+        // Like claude-agent-acp: the command list follows the session/new response.
+        if (process.env.FAKE_NO_COMMANDS !== "1") {
+            setTimeout(() => {
+                void context.client.notify(methods.client.session.update, {
+                    sessionId,
+                    update: {
+                        sessionUpdate: "available_commands_update",
+                        availableCommands: [
+                            { name: "compact", description: "Compact the conversation" },
+                            { name: "review", description: "Review changes", input: { hint: "what to review" } },
+                        ],
+                    },
+                });
+            }, 20);
+        }
         return {
             sessionId,
             modes: {

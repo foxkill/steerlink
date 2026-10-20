@@ -41,11 +41,16 @@ describe.skipIf(!enabled)("Smoke: connector → claude-agent-acp", () => {
     });
 
     it("creates hello.txt only after approval", { timeout: 300000 }, async () => {
-        const session = await client.call<{ session_id: string; current_mode: string }>("start_session", {
+        const session = await client.call<{
+            session_id: string;
+            current_mode: string;
+            available_commands: Array<{ command: string }> | null;
+        }>("start_session", {
             cwd: workDir,
             mode: "default",
         });
         expect(session.data.current_mode).toBe("default");
+        expect(session.data.available_commands?.map((entry) => entry.command)).toContain("/compact");
         const sessionId = session.data.session_id;
 
         const turn = await client.call<TurnResult>("send_prompt", {
