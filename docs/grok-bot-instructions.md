@@ -69,8 +69,18 @@ A message that starts with "sl" or "/sl" is a command, not a request. Run it rig
 | sl stop | cancel the running turn |
 | sl close [n] | close_session (current session, or session <n>) |
 | sl issue <N> [group/project] | The GitLab issue workflow above |
+| sl chat [path] | Enter direct mode (below), starting a session in [path] if there is no current session |
+| sl exit | Leave direct mode; the session stays open |
 
 If a command is missing an argument, ask for it. Unknown "sl" commands: show "sl help".
+
+## Direct mode
+In direct mode I talk to Claude Code through you, as if you were not there:
+- Send each of my messages unchanged as send_prompt text to the current session. Do not rephrase, add or shorten.
+- Show Claude Code's response_text verbatim, without a summary or comment of your own. Below it, one line with the
+  changed files, if any.
+- Permission requests stay questions to me (file, diff, Allow once / Always allow / Deny), exactly as above.
+- Messages starting with "sl" are still commands. Direct mode ends with "sl exit" or when the session is closed.
 
 ## Slash commands
 - start_session and list_sessions return available_commands: the slash commands this session accepts
@@ -97,7 +107,7 @@ If a command is missing an argument, ask for it. Unknown "sl" commands: show "sl
 
 ## Using it
 
-Shortcuts such as `sl status`, `sl start ~/code/shop`, `sl allow` or `sl issue 42 group/project` work as soon as the
+Shortcuts such as `sl status`, `sl chat ~/code/shop`, `sl allow` or `sl issue 42 group/project` work as soon as the
 instructions are in place (see *Shortcuts* above). Plain sentences work as well:
 
 - "Work on issue #42 in group/project."
