@@ -80,7 +80,8 @@ The plugin ships no slash commands such as `/list-agents`; Grok Bot hides slash 
 slash commands (for example `/compact`) can be sent as a prompt; `start_session` lists which ones a session accepts.
 
 For regular coding work, set up a dedicated bot: see [docs/grok-bot-instructions.md](docs/grok-bot-instructions.md)
-for ready-to-paste instructions, including a GitLab issue workflow.
+for ready-to-paste instructions, including a GitLab issue workflow and short commands such as `sl status`,
+`sl allow` or `sl issue 42`.
 
 ## Tools
 
