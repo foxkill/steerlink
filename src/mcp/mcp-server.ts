@@ -5,6 +5,7 @@ import { z } from "zod";
 import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import type { SessionManager } from "../sessions/session-manager.js";
 import { createElicitationPrompter, supportsFormDialogs } from "./permission-prompt.js";
+import { registerSessionViewResource, registerSessionViewTools, supportsMcpApps } from "./session-view.js";
 
 function ok(value: object): CallToolResult {
     return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -33,11 +34,18 @@ export function createMcpServer(manager: SessionManager): McpServer {
             instructions:
                 "Controls ACP coding agents (default: Claude Code via claude-agent-acp). Flow: start_session(cwd) → send_prompt(text). " +
                 "If send_prompt reports status=awaiting_permission, answer with respond_permission(permission_id, allow|deny), then " +
-                "poll get_session_updates(wait_seconds) until status=idle. Long tasks: send_prompt with wait=false, then poll.",
+                "poll get_session_updates(wait_seconds) until status=idle. Long tasks: send_prompt with wait=false, then poll. " +
+                "If the show_session tool is offered, call it right after start_session: the user then follows the session " +
+                "and approves changes in a live view in the chat.",
         },
     );
 
-    // Once the host has introduced itself: show permission requests as dialogs if it can.
+    // The view's HTML must be registered before connecting; its tools only for hosts with MCP Apps (below).
+    registerSessionViewResource(server);
+    let viewToolsRegistered = false;
+
+    // Once the host has introduced itself: show permission requests as dialogs if it can,
+    // and offer the session view if it renders MCP Apps.
     server.server.oninitialized = () => {
         const capabilities = server.server.getClientCapabilities();
         const prompter = supportsFormDialogs(capabilities)
@@ -50,6 +58,11 @@ export function createMcpServer(manager: SessionManager): McpServer {
               })
             : undefined;
         manager.setPermissionPrompter(prompter);
+        if (supportsMcpApps(capabilities) && !viewToolsRegistered) {
+            viewToolsRegistered = true;
+            registerSessionViewTools(server, manager);
+            manager.enableSessionView();
+        }
     };
 
     server.registerTool(

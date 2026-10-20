@@ -535,6 +535,11 @@ describe("plugin against the real connector", () => {
         expect(documented).toEqual(offered);
     });
 
+    it("the skill explains show_session, which only hosts with MCP Apps get", () => {
+        expect(skill).toContain("`show_session`");
+        expect(toolsInSkillTable(skill)).not.toContain("show_session");
+    });
+
     it("mcp.json sets the API key mode and only declared variables", () => {
         expect(pluginEnv.ACP_CONNECTOR_AUTH_MODE).toBe("api_key");
         expect(pluginEnv.ANTHROPIC_API_KEY).toBe("${ANTHROPIC_API_KEY}");

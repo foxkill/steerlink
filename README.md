@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.5"],
+      "args": ["-y", "steerlink@0.1.6"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -109,6 +109,23 @@ Typical flow:
    - `idle`: the turn is done; read `response_text` and `tool_calls`
 3. Long tasks: `send_prompt { …, wait: false }` and poll.
 
+## Session view in the chat
+
+In hosts that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) (for example Claude, ChatGPT and
+VS Code), SteerLink also offers `show_session`. It opens a live view of the session right in the chat: the agent's
+messages, every change with its diff, and **Allow once / Always allow / Deny** buttons. You can also type to the agent
+and stop it there.
+
+![The session view with a pending approval](docs/assets/session-view.png)
+
+- A click in the view is your own answer: the view's tools are hidden from the model, so it also counts in
+  `permission_prompt=required` mode.
+- The view is one self-contained HTML document; it loads nothing from the internet, and everything from the agent is
+  shown as text.
+- Hosts without MCP Apps (Grok Bot at the moment) do not see `show_session` and work as before.
+- Try it locally without any host: `npm run view:host` (a demo agent, nothing is billed) or
+  `npm run view:host -- --claude` (real Claude Code with your own sign-in), then open http://127.0.0.1:5173/.
+
 ## Permission dialogs
 
 If the MCP host can show forms (MCP *elicitation*), SteerLink asks **you** directly whenever the agent wants to change
@@ -120,10 +137,11 @@ but decline every dialog at once; SteerLink notices that and switches dialogs of
 | `ACP_CONNECTOR_PERMISSION_PROMPT` | Behaviour |
 |---|---|
 | `auto` (default) | Dialog if the host supports it; the host's model may still answer |
-| `required` | Only your dialog can **allow** anything; the host's model can only deny. Sessions refuse to start if the host has no dialogs. Use it so that no text in a prompt, issue or file can make the model approve changes. |
+| `required` | Only you can **allow** anything, in the dialog or in the session view; the host's model can only deny. Sessions refuse to start if the host has neither. Use it so that no text in a prompt, issue or file can make the model approve changes. |
 | `off` | No dialogs; the host's model answers via `respond_permission` |
 
-`auth_status` reports `permission_prompt: { mode, user_dialog }`, so you can check whether your host shows dialogs.
+`auth_status` reports `permission_prompt: { mode, user_dialog, session_view, note }`, so you can check what your host
+supports.
 
 ## Authentication and billing
 
@@ -181,12 +199,16 @@ npm run format          # oxfmt, 4-space indentation
 npm run test:package    # npm pack → install into an empty folder → start via npx (needs network)
 npm run test:smoke      # against the real claude-agent-acp (needs ANTHROPIC_API_KEY)
 npm run demo            # end-to-end demo: MCP client → bridge → Claude Code → hello.txt
+npm run test:view       # the session view in headless Chrome: approve with a click, file is written
+npm run view:host       # local MCP Apps host for the session view at http://127.0.0.1:5173/
 ```
 
 Tooling: TypeScript 7 with the strictest compiler options (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
 `verbatimModuleSyntax`, …), [oxlint](https://oxc.rs) with type-aware rules via `oxlint-tsgolint`, and oxfmt.
 `tsconfig.json` covers the whole project for the editor, the type checker and the linter; `tsconfig.build.json` builds
-only `src/`. External JSON (config file, `package.json`) is validated with zod instead of type assertions.
+only `src/`. The session view lives in `ui/` (browser code, its own `ui/tsconfig.json` with DOM types); esbuild bundles
+it with the official [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps) into one HTML file
+(`dist/ui/session-view.html`). External JSON (config file, `package.json`) is validated with zod instead of type assertions.
 
 Before submitting to a marketplace, test locally and in-app as described in
 [docs/testing-in-grok-bot.md](docs/testing-in-grok-bot.md) (`npm run plugin:local` for Cursor, a `next` prerelease for

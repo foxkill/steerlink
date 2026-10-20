@@ -53,6 +53,17 @@ commands this session accepts (for example `/compact`). To run one, send it as t
 text. Commands that are not listed do not work through this server; terminal-only commands such
 as `/rc` (Remote Control) are never available. Tell the user instead of trying them.
 
+## Session view
+
+Some hosts render interactive views in the chat (MCP Apps). There the server also offers
+`show_session`. Call it right after `start_session`, and whenever the user wants to see the
+session: a live view opens with the agent's messages, the changes and **Allow / Deny buttons**.
+
+- While the view is open, the user approves in the view. Do not ask the same question in the
+  chat; tell them briefly that a request is waiting in the view.
+- The user can also type messages to the agent and stop it in the view.
+- If `show_session` is not in your tool list, the host has no views; work as described above.
+
 ## Direct mode
 
 If the user wants to talk to the agent directly ("let me talk to Claude Code", "direct mode"):
