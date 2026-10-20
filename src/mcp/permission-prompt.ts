@@ -7,6 +7,13 @@ import type { PermissionDecision, PermissionPrompter } from "../sessions/session
 /** How long a dialog stays open before the request falls back to the host. */
 export const PROMPT_TIMEOUT_MS = 15 * 60 * 1000;
 
+/**
+ * A dialog that is declined or dismissed faster than this was not answered by
+ * a person: the host declares elicitation support but cannot show the form
+ * (seen in Grok Bot). Dialogs are then switched off for this host.
+ */
+export const INSTANT_ANSWER_MS = 500;
+
 const PREVIEW_CHARS = 1500;
 
 const DECISION_FOR_KIND: Record<string, PermissionDecision> = {
@@ -63,10 +70,16 @@ export function describePermission(request: {
 
 /**
  * Asks the user through MCP elicitation (a form dialog in the host). Accept
- * with a decision answers the request; decline means deny; cancel, a timeout
- * or an error leave it to the host.
+ * with a decision answers the request. Decline, cancel, a timeout or an error
+ * leave it to the host, which then asks in the chat: a declined form is not a
+ * reliable "deny", because some hosts decline forms they cannot show.
+ * `onUnusable` is called when the host answered too fast for a person.
  */
-export function createElicitationPrompter(server: McpServer): PermissionPrompter {
+export function createElicitationPrompter(
+    server: McpServer,
+    onUnusable: () => void,
+    now: () => number = Date.now,
+): PermissionPrompter {
     return async (request, signal) => {
         const decisions = decisionsFor(request.permission);
         if (decisions.length === 0) {
@@ -88,11 +101,12 @@ export function createElicitationPrompter(server: McpServer): PermissionPrompter
                 required: ["decision"],
             },
         };
+        const shownAt = now();
         const result = await server.server.elicitInput(params, { signal, timeout: PROMPT_TIMEOUT_MS });
-        if (result.action === "decline") {
-            return decisions.includes("deny") ? "deny" : null;
-        }
         if (result.action !== "accept") {
+            if (now() - shownAt < INSTANT_ANSWER_MS) {
+                onUnusable();
+            }
             return null;
         }
         const chosen = result.content?.decision;
