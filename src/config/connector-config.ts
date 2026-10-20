@@ -13,6 +13,20 @@ const authModeSchema = z.enum(["api_key", "subscription"], {
 /** How the connector signs in a Claude agent. */
 export type AuthMode = z.infer<typeof authModeSchema>;
 
+const permissionPromptSchema = z.enum(["auto", "off", "required"], {
+    error: 'permission_prompt must be "auto", "off" or "required"',
+});
+
+/**
+ * Who answers the agent's permission requests:
+ * - `auto` (default): the user in a dialog of the MCP host (elicitation) if the
+ *   host supports it; the host's model may answer as well.
+ * - `off`: never show a dialog; only the host answers via respond_permission.
+ * - `required`: only the user's dialog may allow anything; the host's model can
+ *   still deny. Sessions refuse to start if the host has no dialogs.
+ */
+export type PermissionPromptMode = z.infer<typeof permissionPromptSchema>;
+
 /**
  * An ACP agent, analogous to Zed's `agent_servers` entry (`type`, `command`,
  * `args`, `env`).
@@ -35,6 +49,7 @@ const agentServerSchema = z.object({
 const configFileSchema = z.object({
     default_agent: z.string().min(1).optional(),
     auth_mode: authModeSchema.optional(),
+    permission_prompt: permissionPromptSchema.optional(),
     agent_servers: z.record(z.string(), agentServerSchema).default({}),
 });
 
@@ -49,12 +64,14 @@ export interface AgentServerConfig {
 export interface ConnectorConfig {
     default_agent: string;
     auth_mode: AuthMode;
+    permission_prompt: PermissionPromptMode;
     agent_servers: Record<string, AgentServerConfig>;
 }
 
 export const CONFIG_ENV_VAR = "ACP_CONNECTOR_CONFIG";
 export const AUTH_MODE_ENV_VAR = "ACP_CONNECTOR_AUTH_MODE";
 export const DEFAULT_AGENT_ENV_VAR = "ACP_CONNECTOR_DEFAULT_AGENT";
+export const PERMISSION_PROMPT_ENV_VAR = "ACP_CONNECTOR_PERMISSION_PROMPT";
 
 /** Path to the `claude-agent-acp` binary from our own node_modules. */
 export function resolveClaudeAgentAcpBin(): string {
@@ -95,6 +112,23 @@ function readConfigFile(path: string): z.infer<typeof configFileSchema> {
     return parsed.data;
 }
 
+/** An env override for one of the enum settings; undefined if unset, an error if invalid. */
+function readEnumEnv<T extends string>(
+    env: NodeJS.ProcessEnv,
+    name: string,
+    schema: z.ZodEnum<{ [K in T]: K }>,
+): T | undefined {
+    const raw = readEnv(env, name);
+    if (raw === undefined) {
+        return undefined;
+    }
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+        throw new Error(`${name}: ${describeIssues(parsed.error)}`);
+    }
+    return parsed.data;
+}
+
 /**
  * Loads the configuration from the JSON file in `ACP_CONNECTOR_CONFIG`
  * (optional) and applies the env overrides. Empty values and unexpanded
@@ -113,20 +147,19 @@ export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): Conne
         };
     }
 
-    const authModeOverride = readEnv(env, AUTH_MODE_ENV_VAR);
-    let authMode: AuthMode = file.auth_mode ?? "api_key";
-    if (authModeOverride !== undefined) {
-        const parsed = authModeSchema.safeParse(authModeOverride);
-        if (!parsed.success) {
-            throw new Error(`${AUTH_MODE_ENV_VAR}: ${describeIssues(parsed.error)}`);
-        }
-        authMode = parsed.data;
-    }
+    const authMode = readEnumEnv(env, AUTH_MODE_ENV_VAR, authModeSchema) ?? file.auth_mode ?? "api_key";
+    const permissionPrompt =
+        readEnumEnv(env, PERMISSION_PROMPT_ENV_VAR, permissionPromptSchema) ?? file.permission_prompt ?? "auto";
 
     const defaultAgent = readEnv(env, DEFAULT_AGENT_ENV_VAR) ?? file.default_agent ?? "claude";
     if (!(defaultAgent in agentServers)) {
         throw new Error(`default_agent "${defaultAgent}" is not defined in agent_servers`);
     }
 
-    return { default_agent: defaultAgent, auth_mode: authMode, agent_servers: agentServers };
+    return {
+        default_agent: defaultAgent,
+        auth_mode: authMode,
+        permission_prompt: permissionPrompt,
+        agent_servers: agentServers,
+    };
 }

@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.3"],
+      "args": ["-y", "steerlink@0.1.4"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -109,6 +109,21 @@ Typical flow:
    - `idle`: the turn is done; read `response_text` and `tool_calls`
 3. Long tasks: `send_prompt { …, wait: false }` and poll.
 
+## Permission dialogs
+
+If the MCP host can show forms (MCP *elicitation*), SteerLink asks **you** directly whenever the agent wants to change
+a file or run a command. The dialog shows the request with a preview and the choices *Allow once*, *Always allow*,
+*Deny*. Your answer goes straight to the agent, and the host's model only sees the result. If you dismiss the dialog,
+or the host cannot show one, the host asks you in the chat as before.
+
+| `ACP_CONNECTOR_PERMISSION_PROMPT` | Behaviour |
+|---|---|
+| `auto` (default) | Dialog if the host supports it; the host's model may still answer |
+| `required` | Only your dialog can **allow** anything; the host's model can only deny. Sessions refuse to start if the host has no dialogs. Use it so that no text in a prompt, issue or file can make the model approve changes. |
+| `off` | No dialogs; the host's model answers via `respond_permission` |
+
+`auth_status` reports `permission_prompt: { mode, user_dialog }`, so you can check whether your host shows dialogs.
+
 ## Authentication and billing
 
 | `ACP_CONNECTOR_AUTH_MODE` | Behaviour |
@@ -150,7 +165,9 @@ Optional JSON file, path in `ACP_CONNECTOR_CONFIG` (modelled on Zed's `agent_ser
 - `claude` is built in (the bundled `claude-agent-acp`); an entry named `claude` replaces it.
 - `auth_profile`: `"claude"` applies the rules above (default for the name `claude`); `"none"` passes env and
   args through unchanged. Each agent's own terms apply to its use.
-- Environment overrides: `ACP_CONNECTOR_AUTH_MODE`, `ACP_CONNECTOR_DEFAULT_AGENT`. `ACP_CONNECTOR_DEBUG=1` mirrors
+- `permission_prompt` sets the dialog mode (see *Permission dialogs*).
+- Environment overrides: `ACP_CONNECTOR_AUTH_MODE`, `ACP_CONNECTOR_DEFAULT_AGENT`,
+  `ACP_CONNECTOR_PERMISSION_PROMPT`. `ACP_CONNECTOR_DEBUG=1` mirrors
   the agents' stderr (may contain account details — for debugging only).
 
 ## Development

@@ -68,6 +68,9 @@ If the user wants to talk to the agent directly ("let me talk to Claude Code", "
 Each entry in `pending_permissions` has a `permission_id`, a `title`, the tool `kind`, the
 `input`, the `diffs` and the `options`.
 
+- **If `asked_user` is true**, the user is answering the request in a dialog of the host right
+  now. Do not ask again in the chat; wait with `get_session_updates`. If `respond_permission`
+  refuses an `allow` (`permission_prompt=required`), only the user's dialog can allow it.
 - **Ask the user, do not decide yourself.** Present the request as a question with
   choices: what the agent wants to do (`title`), the file path, the diff or command, and the
   options *Allow once*, *Always allow*, *Deny*. Then call `respond_permission` with the
