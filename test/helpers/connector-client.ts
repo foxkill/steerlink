@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ElicitRequestSchema, type ElicitRequest, type ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 
 const root = join(import.meta.dirname, "..", "..");
 
@@ -45,10 +46,26 @@ export interface ToolCallOutcome<T> {
     data: T;
 }
 
+/** Answers the connector's permission dialogs (MCP elicitation) like a user would. */
+export type DialogHandler = (request: ElicitRequest["params"], signal: AbortSignal) => Promise<ElicitResult>;
+
 /** MCP client that starts the connector as a stdio subprocess, just like Grok Bot. */
 export class ConnectorClient {
-    private readonly client = new Client({ name: "connector-test", version: "1.0.0" });
+    private readonly client: Client;
     private transport: StdioClientTransport | undefined;
+
+    /** With `dialogs`, the client declares form elicitation support and answers with the handler. */
+    constructor(dialogs?: DialogHandler) {
+        this.client = new Client(
+            { name: "connector-test", version: "1.0.0" },
+            dialogs ? { capabilities: { elicitation: { form: {} } } } : {},
+        );
+        if (dialogs) {
+            this.client.setRequestHandler(ElicitRequestSchema, (request, extra) =>
+                dialogs(request.params, extra.signal),
+            );
+        }
+    }
 
     /**
      * `isolated`: inherit only system variables (paths, temp, user profile, npm)

@@ -68,6 +68,20 @@ describe("loadConnectorConfig", () => {
         expect(() => loadConnectorConfig({ ACP_CONNECTOR_AUTH_MODE: "abo" })).toThrow(/auth_mode/);
     });
 
+    it("permission_prompt: auto by default, from the file, overridden by env, validated", () => {
+        expect(loadConnectorConfig({}).permission_prompt).toBe("auto");
+        const path = join(dir, "prompt.json");
+        writeFileSync(path, JSON.stringify({ permission_prompt: "required" }));
+        expect(loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path }).permission_prompt).toBe("required");
+        expect(
+            loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path, ACP_CONNECTOR_PERMISSION_PROMPT: "off" })
+                .permission_prompt,
+        ).toBe("off");
+        expect(() => loadConnectorConfig({ ACP_CONNECTOR_PERMISSION_PROMPT: "always" })).toThrow(
+            /ACP_CONNECTOR_PERMISSION_PROMPT: permission_prompt must be "auto", "off" or "required"/,
+        );
+    });
+
     it("additional agents get auth_profile none, an unknown default_agent is an error", () => {
         const path = join(dir, "agents.json");
         writeFileSync(

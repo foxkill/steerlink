@@ -37,10 +37,25 @@ export interface SlashCommand {
 export type SessionStatus = "idle" | "running" | "awaiting_permission" | "closed";
 export type PermissionDecision = "allow" | "allow_always" | "deny" | "deny_always";
 
+/** Who answered a permission request. */
+export type PermissionAnswerer = "user" | "host";
+
+/**
+ * Asks the user directly (for example in a dialog of the MCP host). Resolves
+ * with the user's decision, or null if the user dismissed the dialog or it
+ * could not be shown; the request then stays open for the host.
+ */
+export type PermissionPrompter = (
+    request: { permission: PendingPermissionSummary; agent: string; cwd: string },
+    signal: AbortSignal,
+) => Promise<PermissionDecision | null>;
+
 interface PendingPermission {
     summary: PendingPermissionSummary;
     options: RequestPermissionRequest["options"];
     resolve: (response: RequestPermissionResponse) => void;
+    /** Set while the user's dialog for this request is open. */
+    prompt?: AbortController | undefined;
 }
 
 interface Turn {
@@ -112,6 +127,8 @@ export interface AuthStatusResult {
     problem: string | null;
     /** Explanation for a reported state that looks wrong but is expected; null if there is nothing to explain. */
     note: string | null;
+    /** Whether permission requests reach the user in a dialog of the host. */
+    permission_prompt: { mode: string; user_dialog: boolean };
 }
 
 const MAX_EVENTS = 2000;
@@ -150,11 +167,22 @@ export class SessionManager implements AgentEventSink {
     private readonly sessions = new Map<string, SessionState>();
     private permissionCounter = 0;
     private seqCounter = 0;
+    private prompter: PermissionPrompter | undefined;
 
     constructor(
         private readonly config: ConnectorConfig,
         private readonly debug: boolean = false,
     ) {}
+
+    /** Called once the MCP host is known: a prompter if it can show dialogs, otherwise undefined. */
+    setPermissionPrompter(prompter: PermissionPrompter | undefined): void {
+        this.prompter = this.config.permission_prompt === "off" ? undefined : prompter;
+    }
+
+    /** Whether permission requests are shown to the user in a dialog, and the configured mode. */
+    permissionPromptStatus(): { mode: string; user_dialog: boolean } {
+        return { mode: this.config.permission_prompt, user_dialog: this.prompter !== undefined };
+    }
 
     // ---------------------------------------------------------------- Agents
 
@@ -257,6 +285,13 @@ export class SessionManager implements AgentEventSink {
         if (!statSync(params.cwd, { throwIfNoEntry: false })?.isDirectory()) {
             throw new Error(`cwd "${params.cwd}" is not an existing directory`);
         }
+        if (this.config.permission_prompt === "required" && !this.prompter) {
+            throw new Error(
+                "permission_prompt=required, but this MCP host cannot show permission dialogs (no elicitation " +
+                    "support), so nobody could approve a change. Use a host with elicitation or set " +
+                    "ACP_CONNECTOR_PERMISSION_PROMPT=auto.",
+            );
+        }
         const agentName = this.resolveAgentName(params.agent);
         const agentProcess = await this.ensureAgent(agentName);
         const response = await agentProcess.agent.request(methods.agent.session.new, {
@@ -337,6 +372,18 @@ export class SessionManager implements AgentEventSink {
         return "idle";
     }
 
+    /**
+     * True when the host has something to do: the turn ended, or a permission
+     * request is open that the user is not already answering in a dialog.
+     */
+    private needsHost(session: SessionState): boolean {
+        const status = this.status(session);
+        if (status !== "awaiting_permission") {
+            return status !== "running";
+        }
+        return [...session.pendingPermissions.values()].some((pending) => !pending.prompt);
+    }
+
     async sendPrompt(params: {
         session_id: string;
         text: string;
@@ -358,7 +405,7 @@ export class SessionManager implements AgentEventSink {
         void this.runTurn(agentProcess, session, turn, params.text);
 
         if (params.wait) {
-            await this.waitFor(session, () => this.status(session) !== "running", params.timeout_seconds * 1000);
+            await this.waitFor(session, () => this.needsHost(session), params.timeout_seconds * 1000);
             // Whatever the caller receives here counts as read.
             session.cursor = this.seqCounter;
         }
@@ -434,14 +481,13 @@ export class SessionManager implements AgentEventSink {
                     `No matching option. Available: ${pending.options.map((candidate) => `${candidate.optionId} (${candidate.kind})`).join(", ")}`,
                 );
             }
-            session.pendingPermissions.delete(params.permission_id);
-            pending.resolve({ outcome: { outcome: "selected", optionId: option.optionId } });
-            this.pushEvent(session, {
-                seq: 0,
-                type: "permission_resolved",
-                permission_id: params.permission_id,
-                outcome: option.kind,
-            });
+            if (this.config.permission_prompt === "required" && option.kind.startsWith("allow")) {
+                throw new Error(
+                    "permission_prompt=required: only the user can allow this, in the permission dialog. " +
+                        "You can still deny it.",
+                );
+            }
+            this.answerPermission(session, params.permission_id, pending, option, "host");
             return {
                 permission_id: params.permission_id,
                 selected_option: { option_id: option.optionId, name: option.name, kind: option.kind },
@@ -449,6 +495,56 @@ export class SessionManager implements AgentEventSink {
             };
         }
         throw new Error(`Unknown or already answered permission "${params.permission_id}"`);
+    }
+
+    private answerPermission(
+        session: SessionState,
+        permissionId: string,
+        pending: PendingPermission,
+        option: RequestPermissionRequest["options"][number],
+        answeredBy: PermissionAnswerer,
+    ): void {
+        session.pendingPermissions.delete(permissionId);
+        pending.prompt?.abort();
+        pending.resolve({ outcome: { outcome: "selected", optionId: option.optionId } });
+        this.pushEvent(session, {
+            seq: 0,
+            type: "permission_resolved",
+            permission_id: permissionId,
+            outcome: option.kind,
+            answered_by: answeredBy,
+        });
+    }
+
+    /** Shows the user's dialog; its answer settles the request unless the host was faster. */
+    private promptUser(session: SessionState, permissionId: string, pending: PendingPermission): void {
+        const prompter = this.prompter;
+        if (!prompter) {
+            return;
+        }
+        const controller = new AbortController();
+        pending.prompt = controller;
+        pending.summary.asked_user = true;
+        const settle = (decision: PermissionDecision | null): void => {
+            if (session.pendingPermissions.get(permissionId) !== pending) {
+                return;
+            }
+            const option = decision ? this.optionForDecision(pending.options, decision) : undefined;
+            if (option) {
+                this.answerPermission(session, permissionId, pending, option, "user");
+                return;
+            }
+            // Dismissed or not shown: the host takes over.
+            pending.prompt = undefined;
+            pending.summary.asked_user = false;
+            this.notify(session);
+        };
+        prompter({ permission: pending.summary, agent: session.agentName, cwd: session.cwd }, controller.signal).then(
+            settle,
+            () => {
+                settle(null);
+            },
+        );
     }
 
     private optionForDecision(
@@ -573,6 +669,7 @@ export class SessionManager implements AgentEventSink {
             ),
             problem,
             note: this.authNote(isClaude, credentials, reported),
+            permission_prompt: this.permissionPromptStatus(),
         };
     }
 
@@ -766,9 +863,12 @@ export class SessionManager implements AgentEventSink {
             input: stringifyInput(request.toolCall.rawInput),
             diffs: request.toolCall.content ? summarizeDiffs(request.toolCall.content) : (known?.diffs ?? []),
             options: summarizeOptions(request.options),
+            asked_user: false,
         };
         return new Promise<RequestPermissionResponse>((resolve) => {
-            session.pendingPermissions.set(permissionId, { summary, options: request.options, resolve });
+            const pending: PendingPermission = { summary, options: request.options, resolve };
+            session.pendingPermissions.set(permissionId, pending);
+            this.promptUser(session, permissionId, pending);
             this.pushEvent(session, { seq: 0, type: "permission_request", permission: summary });
         });
     }
@@ -811,6 +911,7 @@ export class SessionManager implements AgentEventSink {
 
     private cancelPendingPermissions(session: SessionState): void {
         for (const [permissionId, pending] of session.pendingPermissions) {
+            pending.prompt?.abort();
             pending.resolve({ outcome: { outcome: "cancelled" } });
             this.pushEvent(session, {
                 seq: 0,
@@ -829,8 +930,10 @@ export class SessionManager implements AgentEventSink {
         const hints: Record<SessionStatus, string> = {
             idle: "Turn finished. Send the next prompt with send_prompt.",
             running: "Agent is still working. Keep polling with get_session_updates (wait_seconds).",
-            awaiting_permission:
-                "Agent is waiting for approval. Call respond_permission with permission_id and decision allow/deny.",
+            awaiting_permission: pending.every((entry) => entry.asked_user)
+                ? "The user is answering the permission request in a dialog. Do not ask them in the chat; " +
+                  "wait with get_session_updates (wait_seconds)."
+                : "Agent is waiting for approval. Call respond_permission with permission_id and decision allow/deny.",
             closed: "Session is closed.",
         };
         return {

@@ -40,6 +40,8 @@ When I say "issue #N in group/project" (or "same as last time"):
 If I want changes, send them as a follow-up send_prompt in the same session.
 
 ## Permissions (most important rule)
+- If a permission request has asked_user: true, I am answering it in a dialog right now: do not ask me again in the
+  chat, wait with get_session_updates.
 - Every permission request from Claude Code goes to me. Show what it wants to do, the file path, and the diff or the
   command, and offer: Allow once / Always allow / Deny. Then call respond_permission with my choice.
 - Never decide on your own. Auto-approve only what I explicitly granted for this session, and never auto-approve

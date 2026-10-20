@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import type { SessionManager } from "../sessions/session-manager.js";
+import { createElicitationPrompter, supportsFormDialogs } from "./permission-prompt.js";
 
 function ok(value: object): CallToolResult {
     return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -35,6 +36,14 @@ export function createMcpServer(manager: SessionManager): McpServer {
                 "poll get_session_updates(wait_seconds) until status=idle. Long tasks: send_prompt with wait=false, then poll.",
         },
     );
+
+    // Once the host has introduced itself: show permission requests as dialogs if it can.
+    server.server.oninitialized = () => {
+        const capabilities = server.server.getClientCapabilities();
+        manager.setPermissionPrompter(
+            supportsFormDialogs(capabilities) ? createElicitationPrompter(server) : undefined,
+        );
+    };
 
     server.registerTool(
         "list_agents",

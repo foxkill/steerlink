@@ -35,6 +35,8 @@ export interface PendingPermissionSummary {
     input?: string | undefined;
     diffs: DiffSummary[];
     options: PermissionOptionSummary[];
+    /** True while the user is answering this request in the host's dialog; do not ask them again. */
+    asked_user: boolean;
 }
 
 export type SessionEvent =
@@ -44,7 +46,13 @@ export type SessionEvent =
     | { seq: number; type: "plan"; entries: Array<{ content: string; status: string; priority: string }> }
     | { seq: number; type: "mode"; mode_id: string }
     | { seq: number; type: "permission_request"; permission: PendingPermissionSummary }
-    | { seq: number; type: "permission_resolved"; permission_id: string; outcome: string }
+    | {
+          seq: number;
+          type: "permission_resolved";
+          permission_id: string;
+          outcome: string;
+          answered_by?: "user" | "host" | undefined;
+      }
     | { seq: number; type: "turn_end"; stop_reason: string }
     | { seq: number; type: "error"; message: string };
 
