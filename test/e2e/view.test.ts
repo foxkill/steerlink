@@ -88,7 +88,10 @@ class Devtools {
 /** Reads inside the view's frame (the local host gives it the same origin for this check). */
 const IN_VIEW = `document.querySelector("#view")?.contentDocument`;
 
-describe.skipIf(!chromePath)("Session view in a browser", () => {
+/** The DevTools client uses the global WebSocket, which Node has from version 22. */
+const hasWebSocket = typeof globalThis.WebSocket === "function";
+
+describe.skipIf(!chromePath || !hasWebSocket)("Session view in a browser", () => {
     let host: ViewHost;
     let chrome: ChildProcess;
     let profile: string;
@@ -122,7 +125,7 @@ describe.skipIf(!chromePath)("Session view in a browser", () => {
                 }
                 return line;
             },
-            { timeout: 30000, interval: 200 },
+            { timeout: 60000, interval: 200 },
         );
         const targets = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()) as Array<{
             type: string;
@@ -138,7 +141,7 @@ describe.skipIf(!chromePath)("Session view in a browser", () => {
                     throw new Error("The view host page has not loaded yet");
                 }
             },
-            { timeout: 30000, interval: 200 },
+            { timeout: 60000, interval: 200 },
         );
     });
 

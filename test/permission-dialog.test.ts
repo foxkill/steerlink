@@ -255,9 +255,15 @@ describe("A host that declares dialogs but declines them instantly (Grok Bot)", 
         expect(status.data.permission_prompt.note).toContain("answered a dialog instantly");
 
         await client.call("respond_permission", { permission_id: pending.permission_id, decision: "allow" });
-        await vi.waitFor(() => {
-            expect(existsSync(join(setup.workDir, "first.txt"))).toBe(true);
+        // The turn ends after the file is written; a second prompt before that would be refused.
+        await vi.waitFor(async () => {
+            const updates = await client.call<UpdatesResult>("get_session_updates", {
+                session_id: sessionId,
+                wait_seconds: 1,
+            });
+            expect(updates.data.status).toBe("idle");
         });
+        expect(existsSync(join(setup.workDir, "first.txt"))).toBe(true);
         const second = await client.call<TurnResult>("send_prompt", {
             session_id: sessionId,
             text: "write second.txt x",
