@@ -110,6 +110,15 @@ export function buildAgentLaunch(
         return { command: server.command, args, env };
     }
 
+    // An empty credential is "unset" for the connector, but Claude Code could
+    // still pick it up and fail instead of falling back to the stored login.
+    // Users set a variable to "" to override a global secret, so drop it.
+    for (const name of [...API_KEY_VARS, ...SUBSCRIPTION_CREDENTIAL_VARS]) {
+        if (env[name]?.trim() === "") {
+            delete env[name];
+        }
+    }
+
     if (authMode === "api_key") {
         if (!hasValue(env, "ANTHROPIC_API_KEY")) {
             throw new AuthConfigError(missingApiKeyMessage(merged));

@@ -65,6 +65,28 @@ describe("buildAgentLaunch", () => {
         expect(launch.env.CLAUDE_CODE_OAUTH_TOKEN).toBe("oauth-test");
     });
 
+    it.each(["api_key", "subscription"] as const)(
+        "%s: empty credentials never reach the agent, so a stored login can apply",
+        (mode) => {
+            const launch = buildAgentLaunch(
+                { ...claude, env: { CLAUDE_CODE_OAUTH_TOKEN: "", ANTHROPIC_AUTH_TOKEN: "  " } },
+                mode,
+                { PATH: "/bin", ANTHROPIC_API_KEY: "sk-test", CLAUDE_CODE_OAUTH_REFRESH_TOKEN: "" },
+            );
+            expect(launch.env).not.toHaveProperty("CLAUDE_CODE_OAUTH_TOKEN");
+            expect(launch.env).not.toHaveProperty("CLAUDE_CODE_OAUTH_REFRESH_TOKEN");
+            expect(launch.env).not.toHaveProperty("ANTHROPIC_AUTH_TOKEN");
+        },
+    );
+
+    it("an empty token in the agent config overrides a global token", () => {
+        const launch = buildAgentLaunch({ ...claude, env: { CLAUDE_CODE_OAUTH_TOKEN: "" } }, "subscription", {
+            PATH: "/bin",
+            CLAUDE_CODE_OAUTH_TOKEN: "global-secret",
+        });
+        expect(launch.env).not.toHaveProperty("CLAUDE_CODE_OAUTH_TOKEN");
+    });
+
     it("variables of an enclosing Claude Code session are not inherited", () => {
         const launch = buildAgentLaunch(claude, "api_key", base);
         expect(launch.env.CLAUDECODE).toBeUndefined();

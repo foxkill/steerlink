@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.2"],
+      "args": ["-y", "steerlink@0.1.3"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -118,7 +118,9 @@ Every user signs in with their own credentials; the bridge does not resell or in
 Anthropic's [legal and compliance notes for Claude Code](https://code.claude.com/docs/en/legal-and-compliance).
 
 Unset plugin variables arrive as literal placeholders such as `${ANTHROPIC_API_KEY}`; the bridge treats them as
-missing and says so in `auth_status` instead of passing them on.
+missing and says so in `auth_status` instead of passing them on. An empty value switches a credential off: for
+example, `CLAUDE_CODE_OAUTH_TOKEN=""` in the server's env overrides a global token, so Claude Code uses its stored
+claude.ai login (needed for Remote Control, which a `claude setup-token` token does not cover).
 
 `auth_status` shows *whether* credentials are present and the kind of identity the agent reports (for example
 `api_key`), never e-mail addresses, organisations or tokens. Variables of a surrounding Claude Code session
