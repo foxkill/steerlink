@@ -23,8 +23,11 @@ import {
     summarizeTextContent,
     truncate,
     type PendingPermissionSummary,
+    type PermissionDecision,
     type SessionEvent,
+    type SessionStatus,
     type ToolCallSummary,
+    type ViewState,
 } from "./session-events.js";
 
 /** A slash command the agent accepts in this session, sent as a prompt starting with `command`. */
@@ -34,8 +37,7 @@ export interface SlashCommand {
     input_hint: string | null;
 }
 
-export type SessionStatus = "idle" | "running" | "awaiting_permission" | "closed";
-export type PermissionDecision = "allow" | "allow_always" | "deny" | "deny_always";
+export type { PermissionDecision, SessionStatus, ViewState } from "./session-events.js";
 
 /** Who answered a permission request. */
 export type PermissionAnswerer = "user" | "host";
@@ -96,6 +98,9 @@ export interface TurnResult {
     hint: string;
 }
 
+/** The view keeps at most this many events per call, the newest ones. */
+const VIEW_MAX_EVENTS = 300;
+
 export interface UpdatesResult {
     session_id: string;
     status: SessionStatus;
@@ -128,7 +133,7 @@ export interface AuthStatusResult {
     /** Explanation for a reported state that looks wrong but is expected; null if there is nothing to explain. */
     note: string | null;
     /** Whether permission requests reach the user in a dialog of the host. */
-    permission_prompt: { mode: string; user_dialog: boolean; note: string | null };
+    permission_prompt: { mode: string; user_dialog: boolean; session_view: boolean; note: string | null };
 }
 
 const MAX_EVENTS = 2000;
@@ -169,6 +174,8 @@ export class SessionManager implements AgentEventSink {
     private seqCounter = 0;
     private prompter: PermissionPrompter | undefined;
     private prompterNote: string | null = null;
+    /** The host renders the session view, where the user can answer requests too. */
+    private sessionView = false;
 
     constructor(
         private readonly config: ConnectorConfig,
@@ -184,11 +191,17 @@ export class SessionManager implements AgentEventSink {
         this.prompterNote = note;
     }
 
-    /** Whether permission requests are shown to the user in a dialog, and the configured mode. */
-    permissionPromptStatus(): { mode: string; user_dialog: boolean; note: string | null } {
+    /** Called when the host renders MCP Apps, so the user can answer in the session view. */
+    enableSessionView(): void {
+        this.sessionView = true;
+    }
+
+    /** How permission requests reach the user, and the configured mode. */
+    permissionPromptStatus(): { mode: string; user_dialog: boolean; session_view: boolean; note: string | null } {
         return {
             mode: this.config.permission_prompt,
             user_dialog: this.prompter !== undefined,
+            session_view: this.sessionView,
             note: this.prompterNote,
         };
     }
@@ -294,10 +307,10 @@ export class SessionManager implements AgentEventSink {
         if (!statSync(params.cwd, { throwIfNoEntry: false })?.isDirectory()) {
             throw new Error(`cwd "${params.cwd}" is not an existing directory`);
         }
-        if (this.config.permission_prompt === "required" && !this.prompter) {
+        if (this.config.permission_prompt === "required" && !this.prompter && !this.sessionView) {
             throw new Error(
-                "permission_prompt=required, but this MCP host cannot show permission dialogs (no elicitation " +
-                    "support), so nobody could approve a change. Use a host with elicitation or set " +
+                "permission_prompt=required, but this MCP host can show neither permission dialogs (elicitation) " +
+                    "nor the session view (MCP Apps), so nobody could approve a change. Use such a host or set " +
                     "ACP_CONNECTOR_PERMISSION_PROMPT=auto.",
             );
         }
@@ -468,11 +481,14 @@ export class SessionManager implements AgentEventSink {
         );
     }
 
-    respondPermission(params: {
-        permission_id: string;
-        decision?: PermissionDecision | undefined;
-        option_id?: string | undefined;
-    }): {
+    respondPermission(
+        params: {
+            permission_id: string;
+            decision?: PermissionDecision | undefined;
+            option_id?: string | undefined;
+        },
+        answeredBy: PermissionAnswerer = "host",
+    ): {
         permission_id: string;
         selected_option: { option_id: string; name: string; kind: string };
         session_status: SessionStatus;
@@ -490,13 +506,17 @@ export class SessionManager implements AgentEventSink {
                     `No matching option. Available: ${pending.options.map((candidate) => `${candidate.optionId} (${candidate.kind})`).join(", ")}`,
                 );
             }
-            if (this.config.permission_prompt === "required" && option.kind.startsWith("allow")) {
+            if (
+                answeredBy === "host" &&
+                this.config.permission_prompt === "required" &&
+                option.kind.startsWith("allow")
+            ) {
                 throw new Error(
                     "permission_prompt=required: only the user can allow this, in the permission dialog. " +
                         "You can still deny it.",
                 );
             }
-            this.answerPermission(session, params.permission_id, pending, option, "host");
+            this.answerPermission(session, params.permission_id, pending, option, answeredBy);
             return {
                 permission_id: params.permission_id,
                 selected_option: { option_id: option.optionId, name: option.name, kind: option.kind },
@@ -604,6 +624,36 @@ export class SessionManager implements AgentEventSink {
         }
         this.sessions.delete(sessionId);
         return { session_id: sessionId, closed: true };
+    }
+
+    /** The most recently started session that is still open, if any. */
+    latestSessionId(): string | undefined {
+        return [...this.sessions.values()].findLast((session) => !session.closedReason)?.id;
+    }
+
+    /**
+     * State for the session view. Long-polls up to wait_seconds for events newer
+     * than after_seq. Unlike getUpdates it does not mark anything as read, so the
+     * view and the host's model never take events away from each other.
+     */
+    async viewState(params: { session_id: string; after_seq: number; wait_seconds: number }): Promise<ViewState> {
+        const session = this.getSession(params.session_id);
+        const hasNew = (): boolean => session.events.some((event) => event.seq > params.after_seq);
+        if (!hasNew() && params.wait_seconds > 0 && this.status(session) !== "closed") {
+            await this.waitFor(session, hasNew, params.wait_seconds * 1000);
+        }
+        const events = session.events.filter((event) => event.seq > params.after_seq && event.type !== "thought");
+        return {
+            session_id: session.id,
+            agent: session.agentName,
+            cwd: session.cwd,
+            status: this.status(session),
+            current_mode: session.modes?.currentModeId ?? null,
+            turns: session.turnCount,
+            events: events.slice(-VIEW_MAX_EVENTS),
+            pending_permissions: [...session.pendingPermissions.values()].map((pending) => pending.summary),
+            last_seq: this.seqCounter,
+        };
     }
 
     listSessions(): Array<{
@@ -964,7 +1014,7 @@ export class SessionManager implements AgentEventSink {
         const last = session.events.at(-1);
         if (last?.type === type && last.seq > session.cursor) {
             last.text += text;
-            this.notify(session);
+            this.touchEvent(session, last);
             return;
         }
         this.pushEvent(session, { seq: 0, type, text });
@@ -979,15 +1029,28 @@ export class SessionManager implements AgentEventSink {
             last.seq > session.cursor
         ) {
             last.tool_call = snapshot;
-            this.notify(session);
+            this.touchEvent(session, last);
             return;
         }
         this.pushEvent(session, { seq: 0, type: "tool_call", tool_call: snapshot });
     }
 
+    /**
+     * An event that was updated in place (more text, a newer tool call state)
+     * gets a new seq, so readers that ask for "everything after seq N" see the
+     * update; its id stays the same. It is always the last event, so the
+     * buffer stays ordered by seq.
+     */
+    private touchEvent(session: SessionState, event: SessionEvent): void {
+        this.seqCounter += 1;
+        event.seq = this.seqCounter;
+        this.notify(session);
+    }
+
     private pushEvent(session: SessionState, event: SessionEvent): void {
         this.seqCounter += 1;
         event.seq = this.seqCounter;
+        event.id = this.seqCounter;
         session.events.push(event);
         if (session.events.length > MAX_EVENTS) {
             session.events.splice(0, session.events.length - MAX_EVENTS);

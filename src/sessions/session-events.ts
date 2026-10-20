@@ -39,7 +39,11 @@ export interface PendingPermissionSummary {
     asked_user: boolean;
 }
 
-export type SessionEvent =
+/**
+ * `seq` orders events and grows when an event is updated in place; `id` is
+ * the event's stable identity (its first seq).
+ */
+export type SessionEvent = { id?: number } & (
     | { seq: number; type: "message"; text: string }
     | { seq: number; type: "thought"; text: string }
     | { seq: number; type: "tool_call"; tool_call: ToolCallSummary }
@@ -54,7 +58,8 @@ export type SessionEvent =
           answered_by?: "user" | "host" | undefined;
       }
     | { seq: number; type: "turn_end"; stop_reason: string }
-    | { seq: number; type: "error"; message: string };
+    | { seq: number; type: "error"; message: string }
+);
 
 export const MAX_TEXT = 4000;
 
@@ -119,4 +124,47 @@ export function stringifyInput(rawInput: unknown): string | undefined {
     } catch {
         return undefined;
     }
+}
+
+export type SessionStatus = "idle" | "running" | "awaiting_permission" | "closed";
+export type PermissionDecision = "allow" | "allow_always" | "deny" | "deny_always";
+
+/** Everything the session view (MCP App) shows; reading it never moves the host's cursor. */
+export interface ViewState {
+    session_id: string;
+    agent: string;
+    cwd: string;
+    status: SessionStatus;
+    current_mode: string | null;
+    turns: number;
+    events: SessionEvent[];
+    pending_permissions: PendingPermissionSummary[];
+    /** Pass as after_seq on the next call to get only newer events. */
+    last_seq: number;
+}
+
+const DECISION_FOR_KIND: Readonly<Record<string, PermissionDecision>> = {
+    allow_once: "allow",
+    allow_always: "allow_always",
+    reject_once: "deny",
+    reject_always: "deny_always",
+};
+
+export const DECISION_LABEL: Readonly<Record<PermissionDecision, string>> = {
+    allow: "Allow once",
+    allow_always: "Always allow",
+    deny: "Deny",
+    deny_always: "Always deny",
+};
+
+/** The decisions a permission request offers, in the agent's order, without duplicates. */
+export function decisionsFor(permission: PendingPermissionSummary): PermissionDecision[] {
+    const decisions: PermissionDecision[] = [];
+    for (const option of permission.options) {
+        const decision = DECISION_FOR_KIND[option.kind];
+        if (decision && !decisions.includes(decision)) {
+            decisions.push(decision);
+        }
+    }
+    return decisions;
 }

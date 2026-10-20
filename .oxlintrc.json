@@ -64,6 +64,12 @@
             {
                 "maxArgs": 2
             }
+        ],
+        "eslint/no-underscore-dangle": [
+            "error",
+            {
+                "allow": ["_meta"]
+            }
         ]
     },
     "overrides": [

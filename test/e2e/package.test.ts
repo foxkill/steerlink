@@ -158,10 +158,17 @@ describe("npm package: pack → install → npx", () => {
     it("contains exactly the built code, no sources, tests, source maps or secrets", () => {
         const packed = pack.files.map((file) => file.path.replaceAll("\\", "/")).toSorted(byCodePoint);
         const built = listFiles(join(REPO_ROOT, "dist"))
-            .filter((file) => file.endsWith(".js"))
+            .filter((file) => /\.(?:js|html)$/.test(file))
             .map((file) => relative(REPO_ROOT, file).replaceAll("\\", "/"));
         expect(packed).toEqual([...built, ...ALWAYS_PACKED].toSorted(byCodePoint));
         expect(readFileSync(join(REPO_ROOT, "dist", "main.js"), "utf8").startsWith("#!/usr/bin/env node\n")).toBe(true);
+    });
+
+    it("serves the bundled session view from the installation", async () => {
+        // Literal values on purpose: the installed package must keep this contract.
+        const [content] = await client.readResource("ui://steerlink/session-view.html");
+        expect(content?.mimeType).toBe("text/html;profile=mcp-app");
+        expect(String(content?.text)).toContain('<script type="module">');
     });
 
     it("reports name and version from package.json and offers all tools", async () => {

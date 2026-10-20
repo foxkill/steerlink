@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ClientCapabilities, ElicitRequestFormParams } from "@modelcontextprotocol/sdk/types.js";
 
-import { truncate, type PendingPermissionSummary } from "../sessions/session-events.js";
-import type { PermissionDecision, PermissionPrompter } from "../sessions/session-manager.js";
+import { DECISION_LABEL, decisionsFor, truncate, type PendingPermissionSummary } from "../sessions/session-events.js";
+import type { PermissionPrompter } from "../sessions/session-manager.js";
 
 /** How long a dialog stays open before the request falls back to the host. */
 export const PROMPT_TIMEOUT_MS = 15 * 60 * 1000;
@@ -16,35 +16,9 @@ export const INSTANT_ANSWER_MS = 500;
 
 const PREVIEW_CHARS = 1500;
 
-const DECISION_FOR_KIND: Record<string, PermissionDecision> = {
-    allow_once: "allow",
-    allow_always: "allow_always",
-    reject_once: "deny",
-    reject_always: "deny_always",
-};
-
-const DECISION_LABEL: Record<PermissionDecision, string> = {
-    allow: "Allow once",
-    allow_always: "Always allow",
-    deny: "Deny",
-    deny_always: "Always deny",
-};
-
 /** Form dialogs only; a client that offers URL mode alone cannot show one. */
 export function supportsFormDialogs(capabilities?: ClientCapabilities): boolean {
     return capabilities?.elicitation?.form !== undefined;
-}
-
-/** The decisions this request offers, in the agent's order, without duplicates. */
-export function decisionsFor(permission: PendingPermissionSummary): PermissionDecision[] {
-    const decisions: PermissionDecision[] = [];
-    for (const option of permission.options) {
-        const decision = DECISION_FOR_KIND[option.kind];
-        if (decision && !decisions.includes(decision)) {
-            decisions.push(decision);
-        }
-    }
-    return decisions;
 }
 
 /** Plain-text description of the request: what, where, and a preview of the change or command. */

@@ -2,7 +2,12 @@ import { join } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { ElicitRequestSchema, type ElicitRequest, type ElicitResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+    ElicitRequestSchema,
+    type ClientCapabilities,
+    type ElicitRequest,
+    type ElicitResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 const root = join(import.meta.dirname, "..", "..");
 
@@ -54,11 +59,14 @@ export class ConnectorClient {
     private readonly client: Client;
     private transport: StdioClientTransport | undefined;
 
-    /** With `dialogs`, the client declares form elicitation support and answers with the handler. */
-    constructor(dialogs?: DialogHandler) {
+    /**
+     * With `dialogs`, the client declares form elicitation support and answers
+     * with the handler. `capabilities` adds more, e.g. the MCP Apps extension.
+     */
+    constructor(dialogs?: DialogHandler, capabilities: ClientCapabilities = {}) {
         this.client = new Client(
             { name: "connector-test", version: "1.0.0" },
-            dialogs ? { capabilities: { elicitation: { form: {} } } } : {},
+            { capabilities: { ...capabilities, ...(dialogs ? { elicitation: { form: {} } } : {}) } },
         );
         if (dialogs) {
             this.client.setRequestHandler(ElicitRequestSchema, (request, extra) =>
@@ -104,6 +112,26 @@ export class ConnectorClient {
     /** Name and version the connector reports during MCP `initialize`. */
     serverVersion(): { name: string; version: string } | undefined {
         return this.client.getServerVersion();
+    }
+
+    async listTools(): Promise<Array<{ name: string; _meta?: Record<string, unknown> | undefined }>> {
+        return (await this.client.listTools()).tools;
+    }
+
+    async readResource(uri: string): Promise<Array<{ uri: string; mimeType?: string | undefined; text?: unknown }>> {
+        return (await this.client.readResource({ uri })).contents;
+    }
+
+    /** structuredContent of a tool call, for tools that return one. */
+    async callStructured(
+        name: string,
+        args: Record<string, unknown> = {},
+    ): Promise<Record<string, unknown> | undefined> {
+        const result = await this.client.callTool({ name, arguments: args }, undefined, { timeout: 600000 });
+        const structured: unknown = result.structuredContent;
+        return typeof structured === "object" && structured !== null
+            ? (structured as Record<string, unknown>)
+            : undefined;
     }
 
     async listToolNames(): Promise<string[]> {

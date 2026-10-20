@@ -8,5 +8,6 @@ export default defineConfig({
         testTimeout: 60000,
         hookTimeout: 60000,
         fileParallelism: false,
+        globalSetup: ["test/setup/build-ui.ts"],
     },
 });
