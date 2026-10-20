@@ -69,6 +69,7 @@ You do not call the tools yourself. Tell the bot in plain words, in any language
 | See running sessions | "Which steerlink sessions are running?" | `list_sessions` |
 | See open approvals | "Any pending permissions?" | `list_pending_permissions` |
 | Stop the agent | "Cancel the Claude Code session" | `cancel` |
+| Talk to Claude Code directly | "Direct mode: pass my messages to Claude Code unchanged" | `send_prompt`, answers shown verbatim |
 | Finish | "Close the session" | `close_session` |
 
 A full task in one message:

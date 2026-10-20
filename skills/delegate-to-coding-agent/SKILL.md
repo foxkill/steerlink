@@ -53,6 +53,16 @@ commands this session accepts (for example `/compact`). To run one, send it as t
 text. Commands that are not listed do not work through this server; terminal-only commands such
 as `/rc` (Remote Control) are never available. Tell the user instead of trying them.
 
+## Direct mode
+
+If the user wants to talk to the agent directly ("let me talk to Claude Code", "direct mode"):
+
+- Send each of their messages unchanged as `send_prompt` text. Do not rephrase, add or shorten.
+- Show the agent's `response_text` verbatim, without your own summary, followed by one line
+  with the changed files.
+- Permission requests still go to the user as described below.
+- Leave direct mode when the user asks for it or the session is closed.
+
 ## Permission requests
 
 Each entry in `pending_permissions` has a `permission_id`, a `title`, the tool `kind`, the
