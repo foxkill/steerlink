@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.4"],
+      "args": ["-y", "steerlink@0.1.5"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -113,8 +113,9 @@ Typical flow:
 
 If the MCP host can show forms (MCP *elicitation*), SteerLink asks **you** directly whenever the agent wants to change
 a file or run a command. The dialog shows the request with a preview and the choices *Allow once*, *Always allow*,
-*Deny*. Your answer goes straight to the agent, and the host's model only sees the result. If you dismiss the dialog,
-or the host cannot show one, the host asks you in the chat as before.
+*Deny*. Your answer goes straight to the agent, and the host's model only sees the result. If you dismiss or decline
+the dialog, or the host cannot show one, the host asks you in the chat as before. Some hosts declare dialog support
+but decline every dialog at once; SteerLink notices that and switches dialogs off for that host.
 
 | `ACP_CONNECTOR_PERMISSION_PROMPT` | Behaviour |
 |---|---|

@@ -40,9 +40,16 @@ export function createMcpServer(manager: SessionManager): McpServer {
     // Once the host has introduced itself: show permission requests as dialogs if it can.
     server.server.oninitialized = () => {
         const capabilities = server.server.getClientCapabilities();
-        manager.setPermissionPrompter(
-            supportsFormDialogs(capabilities) ? createElicitationPrompter(server) : undefined,
-        );
+        const prompter = supportsFormDialogs(capabilities)
+            ? createElicitationPrompter(server, () => {
+                  manager.setPermissionPrompter(
+                      undefined,
+                      "Dialogs switched off: the host declared form support but answered a dialog instantly, " +
+                          "so it cannot show them. Permission requests go to the host again.",
+                  );
+              })
+            : undefined;
+        manager.setPermissionPrompter(prompter);
     };
 
     server.registerTool(

@@ -48,6 +48,14 @@ async function startSession(client: ConnectorClient, cwd: string): Promise<strin
 
 const dismissDialog: DialogHandler = () => Promise.resolve({ action: "cancel" });
 
+/** Answers like a person: after reading the dialog for a moment, longer than INSTANT_ANSWER_MS. */
+async function afterReading(result: ElicitResult): Promise<ElicitResult> {
+    await new Promise<void>((resolve) => {
+        setTimeout(resolve, 700);
+    });
+    return result;
+}
+
 describe("Permission dialog (MCP elicitation)", () => {
     const dialogs: Array<ElicitRequest["params"]> = [];
     let answer: DialogHandler = dismissDialog;
@@ -73,7 +81,7 @@ describe("Permission dialog (MCP elicitation)", () => {
 
     it("auth_status reports that the user gets dialogs", async () => {
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
-        expect(status.data.permission_prompt).toEqual({ mode: "auto", user_dialog: true });
+        expect(status.data.permission_prompt).toEqual({ mode: "auto", user_dialog: true, note: null });
     });
 
     it("the user's choice in the dialog answers the request; the host only sees the result", async () => {
@@ -108,8 +116,8 @@ describe("Permission dialog (MCP elicitation)", () => {
         await client.call("close_session", { session_id: sessionId });
     });
 
-    it("declining the dialog denies the change", async () => {
-        answer = () => Promise.resolve({ action: "decline" });
+    it("a declined dialog is not a deny: the host asks in the chat instead", async () => {
+        answer = () => afterReading({ action: "decline" });
         const sessionId = await startSession(client, setup.workDir);
 
         const turn = await client.call<TurnResult>("send_prompt", {
@@ -117,14 +125,14 @@ describe("Permission dialog (MCP elicitation)", () => {
             text: "write declined.txt x",
         });
 
-        expect(turn.data.status).toBe("idle");
-        expect(turn.data.response_text).toContain("Denied");
+        expect(turn.data.status).toBe("awaiting_permission");
+        expect(defined(turn.data.pending_permissions[0], "pending permission").asked_user).toBe(false);
         expect(existsSync(join(setup.workDir, "declined.txt"))).toBe(false);
         await client.call("close_session", { session_id: sessionId });
     });
 
     it("a dismissed dialog hands the request back to the host", async () => {
-        answer = () => Promise.resolve({ action: "cancel" });
+        answer = () => afterReading({ action: "cancel" });
         const sessionId = await startSession(client, setup.workDir);
 
         const turn = await client.call<TurnResult>("send_prompt", {
@@ -212,6 +220,50 @@ describe("Permission dialog (MCP elicitation)", () => {
     });
 });
 
+describe("A host that declares dialogs but declines them instantly (Grok Bot)", () => {
+    let setup: Setup;
+    const dialog = vi.fn<DialogHandler>(() => Promise.resolve({ action: "decline" }));
+    const client = new ConnectorClient(dialog);
+
+    beforeAll(async () => {
+        setup = createSetup();
+        await client.connect({ ACP_CONNECTOR_CONFIG: setup.configPath }, false, true);
+    });
+
+    afterAll(async () => {
+        await client.close();
+        await setup.cleanup();
+    });
+
+    it("falls back to the host instead of denying, and switches dialogs off", async () => {
+        const sessionId = await startSession(client, setup.workDir);
+
+        const first = await client.call<TurnResult>("send_prompt", {
+            session_id: sessionId,
+            text: "write first.txt x",
+        });
+
+        expect(first.data.status).toBe("awaiting_permission");
+        const pending = defined(first.data.pending_permissions[0], "pending permission");
+        expect(pending.asked_user).toBe(false);
+        const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+        expect(status.data.permission_prompt.user_dialog).toBe(false);
+        expect(status.data.permission_prompt.note).toContain("answered a dialog instantly");
+
+        await client.call("respond_permission", { permission_id: pending.permission_id, decision: "allow" });
+        await vi.waitFor(() => {
+            expect(existsSync(join(setup.workDir, "first.txt"))).toBe(true);
+        });
+        const second = await client.call<TurnResult>("send_prompt", {
+            session_id: sessionId,
+            text: "write second.txt x",
+        });
+        expect(second.data.status).toBe("awaiting_permission");
+        expect(dialog).toHaveBeenCalledTimes(1);
+        await client.call("close_session", { session_id: sessionId });
+    });
+});
+
 describe("permission_prompt=required", () => {
     let setup: Setup;
 
@@ -285,7 +337,7 @@ describe("permission_prompt=off", () => {
         );
         try {
             const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
-            expect(status.data.permission_prompt).toEqual({ mode: "off", user_dialog: false });
+            expect(status.data.permission_prompt).toEqual({ mode: "off", user_dialog: false, note: null });
             const sessionId = await startSession(client, setup.workDir);
             const turn = await client.call<TurnResult>("send_prompt", {
                 session_id: sessionId,

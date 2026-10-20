@@ -128,7 +128,7 @@ export interface AuthStatusResult {
     /** Explanation for a reported state that looks wrong but is expected; null if there is nothing to explain. */
     note: string | null;
     /** Whether permission requests reach the user in a dialog of the host. */
-    permission_prompt: { mode: string; user_dialog: boolean };
+    permission_prompt: { mode: string; user_dialog: boolean; note: string | null };
 }
 
 const MAX_EVENTS = 2000;
@@ -168,20 +168,29 @@ export class SessionManager implements AgentEventSink {
     private permissionCounter = 0;
     private seqCounter = 0;
     private prompter: PermissionPrompter | undefined;
+    private prompterNote: string | null = null;
 
     constructor(
         private readonly config: ConnectorConfig,
         private readonly debug: boolean = false,
     ) {}
 
-    /** Called once the MCP host is known: a prompter if it can show dialogs, otherwise undefined. */
-    setPermissionPrompter(prompter: PermissionPrompter | undefined): void {
+    /**
+     * Called once the MCP host is known: a prompter if it can show dialogs,
+     * otherwise undefined. `note` explains why dialogs were switched off later.
+     */
+    setPermissionPrompter(prompter: PermissionPrompter | undefined, note: string | null = null): void {
         this.prompter = this.config.permission_prompt === "off" ? undefined : prompter;
+        this.prompterNote = note;
     }
 
     /** Whether permission requests are shown to the user in a dialog, and the configured mode. */
-    permissionPromptStatus(): { mode: string; user_dialog: boolean } {
-        return { mode: this.config.permission_prompt, user_dialog: this.prompter !== undefined };
+    permissionPromptStatus(): { mode: string; user_dialog: boolean; note: string | null } {
+        return {
+            mode: this.config.permission_prompt,
+            user_dialog: this.prompter !== undefined,
+            note: this.prompterNote,
+        };
     }
 
     // ---------------------------------------------------------------- Agents
