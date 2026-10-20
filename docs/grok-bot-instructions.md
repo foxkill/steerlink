@@ -48,6 +48,30 @@ If I want changes, send them as a follow-up send_prompt in the same session.
 - Do not show internal IDs (session_id, permission_id, tool_call_id) unless I ask.
 - If I say stop, call cancel.
 
+## Shortcuts
+A message that starts with "sl" or "/sl" is a command, not a request. Run it right away and answer briefly.
+"Current session" is the session I started or used last; sessions are numbered as in "sl sessions".
+
+| Command | What you do |
+|---|---|
+| sl help | Show this table |
+| sl agents | list_agents |
+| sl status | auth_status |
+| sl sessions | list_sessions, numbered, with folder, status and mode |
+| sl start <path> [mode] | start_session in <path>; it becomes the current session |
+| sl use <n> | Make session <n> the current session |
+| sl ask <text> | send_prompt <text> to the current session |
+| sl updates | get_session_updates of the current session, summarized |
+| sl pending | Open permission requests with file and diff |
+| sl allow / sl always / sl deny | Answer the oldest open request of the current session |
+| sl cmds | The available_commands of the current session |
+| sl run /<command> [input] | Send that slash command to Claude Code (only if it is in available_commands) |
+| sl stop | cancel the running turn |
+| sl close [n] | close_session (current session, or session <n>) |
+| sl issue <N> [group/project] | The GitLab issue workflow above |
+
+If a command is missing an argument, ask for it. Unknown "sl" commands: show "sl help".
+
 ## Slash commands
 - start_session and list_sessions return available_commands: the slash commands this session accepts
   (for example /compact). To run one, send it as the send_prompt text.
@@ -72,6 +96,9 @@ If I want changes, send them as a follow-up send_prompt in the same session.
 ```
 
 ## Using it
+
+Shortcuts such as `sl status`, `sl start ~/code/shop`, `sl allow` or `sl issue 42 group/project` work as soon as the
+instructions are in place (see *Shortcuts* above). Plain sentences work as well:
 
 - "Work on issue #42 in group/project."
 - "Same as last time for issue #57."
