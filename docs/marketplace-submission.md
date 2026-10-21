@@ -9,7 +9,7 @@ format). Reference for format and checklist: <https://cursor.com/docs/reference/
 |---|---|---|
 | License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
 | Name | Decided: `steerlink` / "SteerLink". `agent-steer` was rejected by npm as too similar to the existing `agentsteer` (AgentSteer, a security monitor for AI coding agents); a similar name in the same space would also risk confusion. | — |
-| npm release | `0.1.6` published; repo at `0.1.8` (`auth_status` shows the host's declared capabilities; `session_view` setting) | Run `npm publish` in a real terminal (2FA needs it). `prepublishOnly` runs `check` and `test:package` first. |
+| npm release | `0.1.6` published; repo at `0.1.9` (`auth_status` shows the host's declared capabilities; `session_view` setting) | Run `npm publish` in a real terminal (2FA needs it). `prepublishOnly` runs `check` and `test:package` first. |
 | Repo | `foxkill/steerlink` (renamed from `grokbot-acp-connector`) | Make it public and enable GitHub Pages (source: GitHub Actions). |
 | Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
 | Donations | PayPal: `paypal.me/foxkilldev` (`.github/FUNDING.yml`, `package.json` `funding`, README, product page) | Later: Ko-fi or GitHub Sponsors as one more line in `FUNDING.yml`. |
