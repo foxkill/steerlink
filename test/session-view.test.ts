@@ -62,6 +62,7 @@ describe("Session view (MCP App) in a host that renders MCP Apps", () => {
         }
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
         expect(status.data.permission_prompt).toMatchObject({ mode: "required", session_view: true });
+        expect(status.data.host?.capabilities).toMatchObject(MCP_APPS);
     });
 
     it("serves the view as one self-contained HTML document", async () => {

@@ -88,6 +88,15 @@ describe("Permission dialog (MCP elicitation)", () => {
         });
     });
 
+    it("auth_status shows the host and its declared capabilities unchanged", async () => {
+        const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+        expect(status.data.host).toEqual({
+            name: "connector-test",
+            version: "1.0.0",
+            capabilities: { elicitation: { form: {} } },
+        });
+    });
+
     it("the user's choice in the dialog answers the request; the host only sees the result", async () => {
         answer = () => Promise.resolve({ action: "accept", content: { decision: "allow" } });
         const sessionId = await startSession(client, setup.workDir);
