@@ -151,6 +151,23 @@ export class ConnectorClient {
         return { isError, text, data };
     }
 
+    /** Calls a tool as a host that asks for progress, and collects the progress notifications. */
+    async callWithProgress<T>(
+        name: string,
+        args: Record<string, unknown> = {},
+    ): Promise<{ data: T; progress: Array<{ progress: number; message?: string | undefined }> }> {
+        const progress: Array<{ progress: number; message?: string | undefined }> = [];
+        const result = await this.client.callTool({ name, arguments: args }, undefined, {
+            timeout: 600000,
+            onprogress: (update) => {
+                progress.push({ progress: update.progress, message: update.message });
+            },
+        });
+        const content = result.content as Array<{ type: string; text?: string }>;
+        const text = content.map((item) => item.text ?? "").join("\n");
+        return { data: JSON.parse(text) as T, progress };
+    }
+
     async close(): Promise<void> {
         await this.client.close();
     }

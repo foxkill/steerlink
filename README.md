@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.9"],
+      "args": ["-y", "steerlink@0.1.10"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -90,7 +90,7 @@ for ready-to-paste instructions, including a GitLab issue workflow and short com
 |---|---|
 | `list_agents` | Configured agents with status and auth methods |
 | `start_session` | `cwd` (absolute), optional `agent` and `mode` (default `default`: every change needs approval; also `acceptEdits`, `plan`, `auto`, `bypassPermissions`). Returns the modes and `available_commands`, the slash commands the session accepts. |
-| `send_prompt` | `session_id`, `text`, `wait` (default `true`), `timeout_seconds`. Returns status, response text, tool calls with diffs and pending permissions. `wait=false` only starts the turn. |
+| `send_prompt` | `session_id`, `text`, `wait` (default `true`), `timeout_seconds` (default 100, below the two minutes after which hosts such as Grok Bot give up). Returns status, response text, tool calls with diffs and pending permissions. `wait=false` only starts the turn. |
 | `get_session_updates` | Events since the last call (text, tool calls, diffs, plans, permissions, end of turn); `wait_seconds` long-polls |
 | `list_pending_permissions` | Pending permission requests with tool, input, diff and options |
 | `respond_permission` | `permission_id` plus `decision` (`allow`, `allow_always`, `deny`, `deny_always`) or a specific `option_id` |
@@ -108,6 +108,9 @@ Typical flow:
    - `running`: repeat `get_session_updates { session_id, wait_seconds: 30 }`
    - `idle`: the turn is done; read `response_text` and `tool_calls`
 3. Long tasks: `send_prompt { …, wait: false }` and poll.
+
+While `send_prompt` or `get_session_updates` waits, SteerLink reports progress every 10 seconds to hosts that ask for
+it (a `progressToken`), so such hosts keep waiting instead of aborting the call.
 
 ## Session view in the chat
 

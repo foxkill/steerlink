@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import type { CallToolResult, ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
@@ -24,10 +25,61 @@ async function run(operation: () => Promise<object> | object): Promise<CallToolR
     }
 }
 
+/**
+ * How often a waiting call reports progress. Hosts such as Grok Bot stop
+ * waiting for a tool after two minutes unless progress arrives.
+ */
+export const DEFAULT_PROGRESS_INTERVAL_MS = 10_000;
+
+/**
+ * Default wait of send_prompt: below the two minutes after which hosts such as
+ * Grok Bot give up on a call that reports no progress.
+ */
+export const DEFAULT_PROMPT_TIMEOUT_SECONDS = 100;
+
+type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+
+/**
+ * Runs a waiting operation and, if the host asked for progress (a
+ * progressToken), reports the elapsed time at a fixed interval until it ends.
+ */
+async function withProgress<T>(
+    extra: ToolExtra,
+    intervalMs: number,
+    message: string,
+    operation: () => Promise<T>,
+): Promise<T> {
+    const progressToken = extra._meta?.progressToken;
+    if (progressToken === undefined) {
+        return operation();
+    }
+    const started = Date.now();
+    const timer = setInterval(() => {
+        const seconds = Math.round((Date.now() - started) / 1000);
+        extra
+            .sendNotification({
+                method: "notifications/progress",
+                params: { progressToken, progress: seconds, message: `${message} (${seconds} s)` },
+            })
+            .catch(() => undefined);
+    }, intervalMs);
+    try {
+        return await operation();
+    } finally {
+        clearInterval(timer);
+    }
+}
+
 const sessionId = z.string().describe("session_id from start_session");
 const agentName = z.string().optional().describe("Name from list_agents; defaults to the configured default_agent");
 
-export function createMcpServer(manager: SessionManager): McpServer {
+export interface McpServerOptions {
+    /** Interval of progress notifications while a call waits (default 10 s). */
+    progressIntervalMs?: number | undefined;
+}
+
+export function createMcpServer(manager: SessionManager, options: McpServerOptions = {}): McpServer {
+    const progressIntervalMs = options.progressIntervalMs ?? DEFAULT_PROGRESS_INTERVAL_MS;
     const server = new McpServer(
         { name: PACKAGE_NAME, version: PACKAGE_VERSION },
         {
@@ -111,7 +163,8 @@ export function createMcpServer(manager: SessionManager): McpServer {
             title: "Send prompt",
             description:
                 "Sends a prompt. With wait=true (the default) the call returns as soon as the turn ends, an approval is needed, " +
-                "or timeout_seconds elapses. Returns the response text, tool calls with diffs, and pending approvals. wait=false only starts the turn.",
+                "or timeout_seconds elapses. Returns the response text, tool calls with diffs, and pending approvals. wait=false only starts the turn. " +
+                "If the turn is still running after the timeout, continue with get_session_updates.",
             inputSchema: {
                 session_id: sessionId,
                 text: z.string().min(1).describe("Prompt text"),
@@ -122,12 +175,19 @@ export function createMcpServer(manager: SessionManager): McpServer {
                     .min(1)
                     .max(3600)
                     .optional()
-                    .describe("Maximum wait time (default 120)"),
+                    .describe(`Maximum wait time (default ${DEFAULT_PROMPT_TIMEOUT_SECONDS})`),
             },
         },
-        ({ session_id, text, wait, timeout_seconds }) =>
+        ({ session_id, text, wait, timeout_seconds }, extra) =>
             run(() =>
-                manager.sendPrompt({ session_id, text, wait: wait ?? true, timeout_seconds: timeout_seconds ?? 120 }),
+                withProgress(extra, progressIntervalMs, "Agent is working", () =>
+                    manager.sendPrompt({
+                        session_id,
+                        text,
+                        wait: wait ?? true,
+                        timeout_seconds: timeout_seconds ?? DEFAULT_PROMPT_TIMEOUT_SECONDS,
+                    }),
+                ),
             ),
     );
 
@@ -145,13 +205,15 @@ export function createMcpServer(manager: SessionManager): McpServer {
             },
             annotations: { readOnlyHint: true },
         },
-        ({ session_id, wait_seconds, include_thoughts }) =>
+        ({ session_id, wait_seconds, include_thoughts }, extra) =>
             run(() =>
-                manager.getUpdates({
-                    session_id,
-                    wait_seconds: wait_seconds ?? 0,
-                    include_thoughts: include_thoughts ?? false,
-                }),
+                withProgress(extra, progressIntervalMs, "Waiting for the agent", () =>
+                    manager.getUpdates({
+                        session_id,
+                        wait_seconds: wait_seconds ?? 0,
+                        include_thoughts: include_thoughts ?? false,
+                    }),
+                ),
             ),
     );
 
