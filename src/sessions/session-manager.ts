@@ -14,7 +14,7 @@ import {
 
 import { AgentProcess, type AgentEventSink, type AgentReportedAuth } from "../acp/agent-process.js";
 import { buildAgentLaunch, describeCredentials, type CredentialPresence } from "../auth/agent-launch.js";
-import type { AgentServerConfig, ConnectorConfig } from "../config/connector-config.js";
+import type { AgentServerConfig, ConnectorConfig, SessionViewMode } from "../config/connector-config.js";
 import {
     stringifyInput,
     summarizeDiffs,
@@ -133,9 +133,23 @@ export interface AuthStatusResult {
     /** Explanation for a reported state that looks wrong but is expected; null if there is nothing to explain. */
     note: string | null;
     /** Whether permission requests reach the user in a dialog of the host. */
-    permission_prompt: { mode: string; user_dialog: boolean; session_view: boolean; note: string | null };
+    permission_prompt: PermissionPromptStatus;
     /** What the MCP host declared about itself on connect; null before it has connected. */
     host: HostInfo | null;
+}
+
+/** How permission requests reach the user, and the configured modes. */
+export interface PermissionPromptStatus {
+    mode: string;
+    user_dialog: boolean;
+    /** show_session is offered. */
+    session_view: boolean;
+    /**
+     * Offered by `session_view=on` although the host did not declare MCP Apps:
+     * a click in the view then counts as the host's answer, not the user's.
+     */
+    session_view_forced: boolean;
+    note: string | null;
 }
 
 /** The MCP host as it introduced itself: name, version and its declared capabilities, unchanged. */
@@ -183,8 +197,10 @@ export class SessionManager implements AgentEventSink {
     private seqCounter = 0;
     private prompter: PermissionPrompter | undefined;
     private prompterNote: string | null = null;
-    /** The host renders the session view, where the user can answer requests too. */
+    /** show_session is offered, so the user can answer requests in the view. */
     private sessionView = false;
+    /** The view was offered by `session_view=on`, not because the host declared MCP Apps. */
+    private sessionViewForced = false;
     private host: HostInfo | null = null;
 
     constructor(
@@ -213,17 +229,32 @@ export class SessionManager implements AgentEventSink {
         }
     }
 
-    /** Called when the host renders MCP Apps, so the user can answer in the session view. */
-    enableSessionView(): void {
+    /** The configured `session_view` setting. */
+    sessionViewMode(): SessionViewMode {
+        return this.config.session_view;
+    }
+
+    /**
+     * Called once show_session is offered. `forced`: the host did not declare
+     * MCP Apps, so it may show the view's tools to its model.
+     */
+    enableSessionView(forced: boolean): void {
         this.sessionView = true;
+        this.sessionViewForced = forced;
+    }
+
+    /** A click in the view is the user's own answer: the host declared MCP Apps and hides the view's tools. */
+    userAnswersInView(): boolean {
+        return this.sessionView && !this.sessionViewForced;
     }
 
     /** How permission requests reach the user, and the configured mode. */
-    permissionPromptStatus(): { mode: string; user_dialog: boolean; session_view: boolean; note: string | null } {
+    permissionPromptStatus(): PermissionPromptStatus {
         return {
             mode: this.config.permission_prompt,
             user_dialog: this.prompter !== undefined,
             session_view: this.sessionView,
+            session_view_forced: this.sessionViewForced,
             note: this.prompterNote,
         };
     }
@@ -329,7 +360,7 @@ export class SessionManager implements AgentEventSink {
         if (!statSync(params.cwd, { throwIfNoEntry: false })?.isDirectory()) {
             throw new Error(`cwd "${params.cwd}" is not an existing directory`);
         }
-        if (this.config.permission_prompt === "required" && !this.prompter && !this.sessionView) {
+        if (this.config.permission_prompt === "required" && !this.prompter && !this.userAnswersInView()) {
             throw new Error(
                 "permission_prompt=required, but this MCP host can show neither permission dialogs (elicitation) " +
                     "nor the session view (MCP Apps), so nobody could approve a change. Use such a host or set " +

@@ -84,6 +84,7 @@ describe("Permission dialog (MCP elicitation)", () => {
             mode: "auto",
             user_dialog: true,
             session_view: false,
+            session_view_forced: false,
             note: null,
         });
     });
@@ -360,6 +361,7 @@ describe("permission_prompt=off", () => {
                 mode: "off",
                 user_dialog: false,
                 session_view: false,
+                session_view_forced: false,
                 note: null,
             });
             const sessionId = await startSession(client, setup.workDir);

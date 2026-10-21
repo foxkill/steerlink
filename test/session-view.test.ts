@@ -61,7 +61,11 @@ describe("Session view (MCP App) in a host that renders MCP Apps", () => {
             expect(tools.find((tool) => tool.name === name)?._meta).toEqual({ ui: { visibility: ["app"] } });
         }
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
-        expect(status.data.permission_prompt).toMatchObject({ mode: "required", session_view: true });
+        expect(status.data.permission_prompt).toMatchObject({
+            mode: "required",
+            session_view: true,
+            session_view_forced: false,
+        });
         expect(status.data.host?.capabilities).toMatchObject(MCP_APPS);
     });
 
@@ -180,6 +184,106 @@ describe("Session view in a host without MCP Apps", () => {
             }
             const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
             expect(status.data.permission_prompt.session_view).toBe(false);
+        } finally {
+            await client.close();
+        }
+    });
+});
+
+describe("session_view setting", () => {
+    let configDir: string;
+    let workDir: string;
+
+    beforeAll(() => {
+        configDir = mkdtempSync(join(tmpdir(), "steerlink-view-setting-config-"));
+        workDir = mkdtempSync(join(tmpdir(), "steerlink-view-setting-work-"));
+    });
+
+    afterAll(async () => {
+        await rm(configDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+        await rm(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+    });
+
+    it("off hides the view even from a host with MCP Apps", async () => {
+        const client = new ConnectorClient(undefined, MCP_APPS);
+        await client.connect({ ACP_CONNECTOR_SESSION_VIEW: "off" }, false, true);
+        try {
+            expect(await client.listToolNames()).not.toContain("show_session");
+            const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+            expect(status.data.permission_prompt.session_view).toBe(false);
+        } finally {
+            await client.close();
+        }
+    });
+
+    it("on offers the view without declared support, but a click there is the host's answer", async () => {
+        const client = new ConnectorClient();
+        await client.connect(
+            {
+                ACP_CONNECTOR_CONFIG: writeConfig(configDir),
+                ACP_CONNECTOR_SESSION_VIEW: "on",
+                ACP_CONNECTOR_PERMISSION_PROMPT: "auto",
+            },
+            false,
+            true,
+        );
+        try {
+            const names = await client.listToolNames();
+            expect(names).toContain("show_session");
+            for (const name of VIEW_TOOLS) {
+                expect(names).toContain(name);
+            }
+            const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+            expect(status.data.permission_prompt).toMatchObject({ session_view: true, session_view_forced: true });
+
+            const started = (await client.call<{ session_id: string }>("start_session", { cwd: workDir })).data;
+            const shown = defined(await client.callStructured("show_session"), "show_session result");
+            expect(String(shown.note)).toMatch(/did not declare MCP Apps/);
+
+            await client.call("send_prompt", {
+                session_id: started.session_id,
+                text: "write forced.txt ok",
+                wait: false,
+            });
+            const waiting = await vi.waitFor(async () => {
+                const current = await state(client, { session_id: started.session_id, wait_seconds: 1 });
+                expect(current.pending_permissions).toHaveLength(1);
+                return current;
+            });
+            const permission = defined(waiting.pending_permissions[0], "pending permission");
+            const answer = await client.call("view_answer_permission", {
+                permission_id: permission.permission_id,
+                decision: "allow",
+            });
+            expect(answer.isError).toBe(false);
+            const after = await state(client, {
+                session_id: started.session_id,
+                after_seq: waiting.last_seq,
+                wait_seconds: 2,
+            });
+            expect(after.events).toContainEqual(
+                expect.objectContaining({ type: "permission_resolved", answered_by: "host" }),
+            );
+            await client.call("close_session", { session_id: started.session_id });
+        } finally {
+            await client.close();
+        }
+    });
+
+    it("a forced view does not count as the user's approval channel in required mode", async () => {
+        const client = new ConnectorClient();
+        await client.connect(
+            {
+                ACP_CONNECTOR_CONFIG: writeConfig(configDir),
+                ACP_CONNECTOR_SESSION_VIEW: "on",
+                ACP_CONNECTOR_PERMISSION_PROMPT: "required",
+            },
+            false,
+            true,
+        );
+        try {
+            const result = await client.call("start_session", { cwd: workDir });
+            expect(result.isError).toBe(true);
         } finally {
             await client.close();
         }

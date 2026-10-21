@@ -5,7 +5,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ClientCapabilities } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
-import type { SessionManager } from "../sessions/session-manager.js";
+import type { PermissionAnswerer, SessionManager } from "../sessions/session-manager.js";
 
 /** MCP Apps (https://github.com/modelcontextprotocol/ext-apps): interactive views rendered by the host. */
 export const MCP_APPS_EXTENSION = "io.modelcontextprotocol/ui";
@@ -88,11 +88,16 @@ export function registerSessionViewResource(server: McpServer): void {
 }
 
 /**
- * show_session and the view's own tools. Registered only for hosts that
- * declare MCP Apps: those hide app-only tools from the model, so an answer
- * through view_answer_permission really comes from the user's click.
+ * show_session and the view's own tools. Hosts that declare MCP Apps hide
+ * app-only tools from the model, so an answer through view_answer_permission
+ * really comes from the user's click (`viewAnswerer` "user"). A host that did
+ * not declare it may show them to its model, so its clicks count as "host".
  */
-export function registerSessionViewTools(server: McpServer, manager: SessionManager): void {
+export function registerSessionViewTools(
+    server: McpServer,
+    manager: SessionManager,
+    viewAnswerer: PermissionAnswerer,
+): void {
     server.registerTool(
         "show_session",
         {
@@ -116,7 +121,12 @@ export function registerSessionViewTools(server: McpServer, manager: SessionMana
                 return {
                     session_id: id,
                     status: session.status,
-                    note: "The session view is open in the chat; the user approves or denies changes there.",
+                    note:
+                        viewAnswerer === "user"
+                            ? "The session view is open in the chat; the user approves or denies changes there."
+                            : "The session view was offered although this host did not declare MCP Apps support " +
+                              "(session_view=on). Ask the user whether they see it. If not, ask them about changes " +
+                              "in the chat as usual.",
                 };
             }),
     );
@@ -149,7 +159,8 @@ export function registerSessionViewTools(server: McpServer, manager: SessionMana
             },
             _meta: appOnly,
         },
-        ({ permission_id, decision }) => run(() => manager.respondPermission({ permission_id, decision }, "user")),
+        ({ permission_id, decision }) =>
+            run(() => manager.respondPermission({ permission_id, decision }, viewAnswerer)),
     );
 
     server.registerTool(

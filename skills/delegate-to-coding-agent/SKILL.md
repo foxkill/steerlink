@@ -63,6 +63,8 @@ session: a live view opens with the agent's messages, the changes and **Allow / 
   chat; tell them briefly that a request is waiting in the view.
 - The user can also type messages to the agent and stop it in the view.
 - If `show_session` is not in your tool list, the host has no views; work as described above.
+- If its result says the view was offered without declared support, ask the user once whether
+  they see it. If they do not, work as described above.
 
 ## Direct mode
 
