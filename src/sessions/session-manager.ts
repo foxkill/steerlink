@@ -496,6 +496,7 @@ export class SessionManager implements AgentEventSink {
             // Finish first, then report: whoever sees turn_end also sees status=idle.
             turn.stopReason = response.stopReason;
             turn.finished = true;
+            agentProcess.answeredPrompt = true;
             this.pushEvent(session, { seq: 0, type: "turn_end", stop_reason: response.stopReason });
         } catch (error) {
             turn.error = error instanceof Error ? error.message : JSON.stringify(error);
@@ -780,22 +781,24 @@ export class SessionManager implements AgentEventSink {
                 describeAuthMethod(method),
             ),
             problem,
-            note: this.authNote(isClaude, credentials, reported),
+            note: this.authNote(isClaude, credentials, reported, agentProcess?.answeredPrompt ?? false),
             permission_prompt: this.permissionPromptStatus(),
             host: this.host,
         };
     }
 
     /**
-     * claude-agent-acp reports its identity before the first session from
-     * `claude auth status`, whose `loggedIn` only reflects a stored claude.ai
-     * login. With CLAUDE_CODE_OAUTH_TOKEN it therefore says "Not logged in"
-     * although requests are authenticated; the report updates once a session runs.
+     * claude-agent-acp reports its identity from `claude auth status`, whose
+     * `loggedIn` only reflects a stored claude.ai login. With
+     * CLAUDE_CODE_OAUTH_TOKEN it therefore says "Not logged in" although
+     * requests are authenticated. A session does not correct it: the session's
+     * account carries no identity for a token, so the adapter keeps the report.
      */
     private authNote(
         isClaude: boolean,
         credentials: CredentialPresence,
         reported: AgentReportedAuth | undefined,
+        answeredPrompt: boolean,
     ): string | null {
         if (
             isClaude &&
@@ -803,11 +806,12 @@ export class SessionManager implements AgentEventSink {
             credentials.claude_code_oauth_token_set &&
             reported?.kind === "none"
         ) {
-            return (
-                'The agent reports "Not logged in" because its pre-session check only sees a stored claude.ai ' +
-                "login, not CLAUDE_CODE_OAUTH_TOKEN. Sign-in works when problem is null; the report updates after " +
-                "the first session starts."
-            );
+            const cause =
+                'The agent reports "Not logged in" because its check only sees a stored claude.ai login, not ' +
+                "CLAUDE_CODE_OAUTH_TOKEN. The report stays like this as long as the token is used. ";
+            return answeredPrompt
+                ? `${cause}Sign-in works: this agent has already answered a prompt.`
+                : `${cause}Sign-in works if problem is null; the first answered prompt confirms it.`;
         }
         return null;
     }
