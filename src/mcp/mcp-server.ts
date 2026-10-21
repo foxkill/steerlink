@@ -48,6 +48,12 @@ export function createMcpServer(manager: SessionManager): McpServer {
     // and offer the session view if it renders MCP Apps.
     server.server.oninitialized = () => {
         const capabilities = server.server.getClientCapabilities();
+        const client = server.server.getClientVersion();
+        manager.setHost({
+            name: client?.name ?? null,
+            version: client?.version ?? null,
+            capabilities: capabilities ?? null,
+        });
         const prompter = supportsFormDialogs(capabilities)
             ? createElicitationPrompter(server, () => {
                   manager.setPermissionPrompter(

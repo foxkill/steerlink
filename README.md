@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.6"],
+      "args": ["-y", "steerlink@0.1.7"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -141,7 +141,9 @@ but decline every dialog at once; SteerLink notices that and switches dialogs of
 | `off` | No dialogs; the host's model answers via `respond_permission` |
 
 `auth_status` reports `permission_prompt: { mode, user_dialog, session_view, note }`, so you can check what your host
-supports.
+supports. Its `host` field shows the host's name, version and the capabilities it declared on connect, unchanged
+(MCP Apps appear under `capabilities.extensions["io.modelcontextprotocol/ui"]`). With `ACP_CONNECTOR_DEBUG=1` the same
+goes to stderr.
 
 ## Authentication and billing
 

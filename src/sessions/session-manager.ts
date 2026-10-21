@@ -134,6 +134,15 @@ export interface AuthStatusResult {
     note: string | null;
     /** Whether permission requests reach the user in a dialog of the host. */
     permission_prompt: { mode: string; user_dialog: boolean; session_view: boolean; note: string | null };
+    /** What the MCP host declared about itself on connect; null before it has connected. */
+    host: HostInfo | null;
+}
+
+/** The MCP host as it introduced itself: name, version and its declared capabilities, unchanged. */
+export interface HostInfo {
+    name: string | null;
+    version: string | null;
+    capabilities: object | null;
 }
 
 const MAX_EVENTS = 2000;
@@ -176,6 +185,7 @@ export class SessionManager implements AgentEventSink {
     private prompterNote: string | null = null;
     /** The host renders the session view, where the user can answer requests too. */
     private sessionView = false;
+    private host: HostInfo | null = null;
 
     constructor(
         private readonly config: ConnectorConfig,
@@ -189,6 +199,18 @@ export class SessionManager implements AgentEventSink {
     setPermissionPrompter(prompter: PermissionPrompter | undefined, note: string | null = null): void {
         this.prompter = this.config.permission_prompt === "off" ? undefined : prompter;
         this.prompterNote = note;
+    }
+
+    /**
+     * Called once the MCP host has introduced itself. auth_status shows it, so
+     * a user can check what a host such as Grok Bot really declares.
+     */
+    setHost(host: HostInfo): void {
+        this.host = host;
+        if (this.debug) {
+            process.stderr.write(`[steerlink] MCP host: ${JSON.stringify(host)}
+`);
+        }
     }
 
     /** Called when the host renders MCP Apps, so the user can answer in the session view. */
@@ -729,6 +751,7 @@ export class SessionManager implements AgentEventSink {
             problem,
             note: this.authNote(isClaude, credentials, reported),
             permission_prompt: this.permissionPromptStatus(),
+            host: this.host,
         };
     }
 
