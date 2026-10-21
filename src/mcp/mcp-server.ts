@@ -64,10 +64,12 @@ export function createMcpServer(manager: SessionManager): McpServer {
               })
             : undefined;
         manager.setPermissionPrompter(prompter);
-        if (supportsMcpApps(capabilities) && !viewToolsRegistered) {
+        const declared = supportsMcpApps(capabilities);
+        const mode = manager.sessionViewMode();
+        if ((mode === "on" || (mode === "auto" && declared)) && !viewToolsRegistered) {
             viewToolsRegistered = true;
-            registerSessionViewTools(server, manager);
-            manager.enableSessionView();
+            registerSessionViewTools(server, manager, declared ? "user" : "host");
+            manager.enableSessionView(!declared);
         }
     };
 

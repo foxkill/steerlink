@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.7"],
+      "args": ["-y", "steerlink@0.1.8"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -123,6 +123,11 @@ and stop it there.
 - The view is one self-contained HTML document; it loads nothing from the internet, and everything from the agent is
   shown as text.
 - Hosts without MCP Apps (Grok Bot at the moment) do not see `show_session` and work as before.
+- `ACP_CONNECTOR_SESSION_VIEW` (plugin setting *Session view*): `auto` (default) offers the view only where the host
+  declares MCP Apps; `on` offers it anyway, to try whether a host such as Grok Bot renders it; `off` never offers it.
+  With `on` and no declared support the host may also show the view's tools to its model, so a click in the view
+  counts as the host's answer: it does not satisfy `permission_prompt=required`. `auth_status` reports this as
+  `session_view_forced: true`.
 - Try it locally without any host: `npm run view:host` (a demo agent, nothing is billed) or
   `npm run view:host -- --claude` (real Claude Code with your own sign-in), then open http://127.0.0.1:5173/.
 
@@ -140,7 +145,7 @@ but decline every dialog at once; SteerLink notices that and switches dialogs of
 | `required` | Only you can **allow** anything, in the dialog or in the session view; the host's model can only deny. Sessions refuse to start if the host has neither. Use it so that no text in a prompt, issue or file can make the model approve changes. |
 | `off` | No dialogs; the host's model answers via `respond_permission` |
 
-`auth_status` reports `permission_prompt: { mode, user_dialog, session_view, note }`, so you can check what your host
+`auth_status` reports `permission_prompt: { mode, user_dialog, session_view, session_view_forced, note }`, so you can check what your host
 supports. Its `host` field shows the host's name, version and the capabilities it declared on connect, unchanged
 (MCP Apps appear under `capabilities.extensions["io.modelcontextprotocol/ui"]`). With `ACP_CONNECTOR_DEBUG=1` the same
 goes to stderr.
@@ -186,9 +191,10 @@ Optional JSON file, path in `ACP_CONNECTOR_CONFIG` (modelled on Zed's `agent_ser
 - `claude` is built in (the bundled `claude-agent-acp`); an entry named `claude` replaces it.
 - `auth_profile`: `"claude"` applies the rules above (default for the name `claude`); `"none"` passes env and
   args through unchanged. Each agent's own terms apply to its use.
-- `permission_prompt` sets the dialog mode (see *Permission dialogs*).
+- `permission_prompt` sets the dialog mode (see *Permission dialogs*), `session_view` when the session view is offered
+  (see *Session view in the chat*).
 - Environment overrides: `ACP_CONNECTOR_AUTH_MODE`, `ACP_CONNECTOR_DEFAULT_AGENT`,
-  `ACP_CONNECTOR_PERMISSION_PROMPT`. `ACP_CONNECTOR_DEBUG=1` mirrors
+  `ACP_CONNECTOR_PERMISSION_PROMPT`, `ACP_CONNECTOR_SESSION_VIEW`. `ACP_CONNECTOR_DEBUG=1` mirrors
   the agents' stderr (may contain account details — for debugging only).
 
 ## Development

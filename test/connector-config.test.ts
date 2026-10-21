@@ -82,6 +82,22 @@ describe("loadConnectorConfig", () => {
         );
     });
 
+    it("session_view: auto by default, from the file, overridden by env, validated", () => {
+        expect(loadConnectorConfig({}).session_view).toBe("auto");
+        const path = join(dir, "view.json");
+        writeFileSync(path, JSON.stringify({ session_view: "on" }));
+        expect(loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path }).session_view).toBe("on");
+        expect(
+            loadConnectorConfig({ ACP_CONNECTOR_CONFIG: path, ACP_CONNECTOR_SESSION_VIEW: "off" }).session_view,
+        ).toBe("off");
+        expect(loadConnectorConfig({ ACP_CONNECTOR_SESSION_VIEW: "${ACP_CONNECTOR_SESSION_VIEW}" }).session_view).toBe(
+            "auto",
+        );
+        expect(() => loadConnectorConfig({ ACP_CONNECTOR_SESSION_VIEW: "yes" })).toThrow(
+            /ACP_CONNECTOR_SESSION_VIEW: session_view must be "auto", "on" or "off"/,
+        );
+    });
+
     it("additional agents get auth_profile none, an unknown default_agent is an error", () => {
         const path = join(dir, "agents.json");
         writeFileSync(

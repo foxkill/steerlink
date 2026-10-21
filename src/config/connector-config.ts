@@ -27,6 +27,20 @@ const permissionPromptSchema = z.enum(["auto", "off", "required"], {
  */
 export type PermissionPromptMode = z.infer<typeof permissionPromptSchema>;
 
+const sessionViewSchema = z.enum(["auto", "on", "off"], {
+    error: 'session_view must be "auto", "on" or "off"',
+});
+
+/**
+ * When to offer the session view (MCP App, `show_session`):
+ * - `auto` (default): only if the host declares MCP Apps support.
+ * - `on`: always, for hosts that render MCP Apps without declaring it. Such a
+ *   host may also show the view's tools to its model, so a click in the view
+ *   counts as the host's answer, not the user's.
+ * - `off`: never.
+ */
+export type SessionViewMode = z.infer<typeof sessionViewSchema>;
+
 /**
  * An ACP agent, analogous to Zed's `agent_servers` entry (`type`, `command`,
  * `args`, `env`).
@@ -50,6 +64,7 @@ const configFileSchema = z.object({
     default_agent: z.string().min(1).optional(),
     auth_mode: authModeSchema.optional(),
     permission_prompt: permissionPromptSchema.optional(),
+    session_view: sessionViewSchema.optional(),
     agent_servers: z.record(z.string(), agentServerSchema).default({}),
 });
 
@@ -65,6 +80,7 @@ export interface ConnectorConfig {
     default_agent: string;
     auth_mode: AuthMode;
     permission_prompt: PermissionPromptMode;
+    session_view: SessionViewMode;
     agent_servers: Record<string, AgentServerConfig>;
 }
 
@@ -72,6 +88,7 @@ export const CONFIG_ENV_VAR = "ACP_CONNECTOR_CONFIG";
 export const AUTH_MODE_ENV_VAR = "ACP_CONNECTOR_AUTH_MODE";
 export const DEFAULT_AGENT_ENV_VAR = "ACP_CONNECTOR_DEFAULT_AGENT";
 export const PERMISSION_PROMPT_ENV_VAR = "ACP_CONNECTOR_PERMISSION_PROMPT";
+export const SESSION_VIEW_ENV_VAR = "ACP_CONNECTOR_SESSION_VIEW";
 
 /** Path to the `claude-agent-acp` binary from our own node_modules. */
 export function resolveClaudeAgentAcpBin(): string {
@@ -150,6 +167,7 @@ export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): Conne
     const authMode = readEnumEnv(env, AUTH_MODE_ENV_VAR, authModeSchema) ?? file.auth_mode ?? "api_key";
     const permissionPrompt =
         readEnumEnv(env, PERMISSION_PROMPT_ENV_VAR, permissionPromptSchema) ?? file.permission_prompt ?? "auto";
+    const sessionView = readEnumEnv(env, SESSION_VIEW_ENV_VAR, sessionViewSchema) ?? file.session_view ?? "auto";
 
     const defaultAgent = readEnv(env, DEFAULT_AGENT_ENV_VAR) ?? file.default_agent ?? "claude";
     if (!(defaultAgent in agentServers)) {
@@ -160,6 +178,7 @@ export function loadConnectorConfig(env: NodeJS.ProcessEnv = process.env): Conne
         default_agent: defaultAgent,
         auth_mode: authMode,
         permission_prompt: permissionPrompt,
+        session_view: sessionView,
         agent_servers: agentServers,
     };
 }

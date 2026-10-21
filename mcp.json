@@ -2,10 +2,11 @@
     "mcpServers": {
         "steerlink": {
             "command": "npx",
-            "args": ["-y", "steerlink@0.1.7"],
+            "args": ["-y", "steerlink@0.1.8"],
             "env": {
                 "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
-                "ACP_CONNECTOR_AUTH_MODE": "api_key"
+                "ACP_CONNECTOR_AUTH_MODE": "api_key",
+                "ACP_CONNECTOR_SESSION_VIEW": "${ACP_CONNECTOR_SESSION_VIEW}"
             }
         }
     }
