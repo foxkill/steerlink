@@ -84,6 +84,8 @@ export class AgentProcess {
     readonly name: string;
     initializeResponse: InitializeResponse | undefined;
     reportedAuth: AgentReportedAuth | undefined;
+    /** The agent has answered a prompt, so its sign-in works whatever it reports. */
+    answeredPrompt = false;
     readonly stderrTail: string[] = [];
     private child: ChildProcessWithoutNullStreams | undefined;
     private connection: ClientConnection | undefined;

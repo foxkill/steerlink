@@ -307,7 +307,8 @@ describe("auth_status with a subscription token", () => {
         expect(status.data.problem).toBeNull();
         expect(status.data.credentials.claude_code_oauth_token_set).toBe(true);
         expect(status.data.agent_reported).toEqual({ kind: "none", label: "Not logged in" });
-        expect(status.data.note).toMatch(/pre-session check only sees a stored claude\.ai login/);
+        expect(status.data.note).toMatch(/check only sees a stored claude\.ai login/);
+        expect(status.data.note).toMatch(/the first answered prompt confirms it/);
         expect(status.text).not.toContain("test-oauth-token-not-real");
     });
 
@@ -315,6 +316,20 @@ describe("auth_status with a subscription token", () => {
         const session = await client.call<StartSessionResult>("start_session", { cwd: configDir });
         expect(session.isError).toBe(false);
         expect(session.data.available_commands).toBeNull();
+        await client.call("close_session", { session_id: session.data.session_id });
+    });
+
+    it('after an answered prompt the note confirms the sign-in, though the agent still says "Not logged in"', async () => {
+        const session = await client.call<StartSessionResult>("start_session", { cwd: configDir });
+        const turn = await client.call<{ status: string }>("send_prompt", {
+            session_id: session.data.session_id,
+            text: "hello",
+        });
+        expect(turn.data.status).toBe("idle");
+        const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+        expect(status.data.agent_reported).toEqual({ kind: "none", label: "Not logged in" });
+        expect(status.data.note).toMatch(/this agent has already answered a prompt/);
+        expect(status.data.note).not.toMatch(/updates after/);
         await client.call("close_session", { session_id: session.data.session_id });
     });
 });

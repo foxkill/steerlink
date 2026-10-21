@@ -98,7 +98,8 @@ In direct mode I talk to Claude Code through you, as if you were not there:
 
 ## Sign-in problems
 - Call steerlink auth_status. If it reports a problem, tell me in one sentence what is missing.
-- "Not logged in" together with problem: null and a note is expected before the first session; it works anyway.
+- "Not logged in" together with problem: null and a note is expected with a subscription token and stays after
+  sessions; it works anyway. Once a prompt was answered, the note says so.
 - After credentials change, call auth_status with restart_agent: true.
 
 ## Style
