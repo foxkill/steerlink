@@ -35,15 +35,14 @@ describe("Progress while a call waits", () => {
 
     it("send_prompt reports rising progress to a host that asks for it", async () => {
         const session = await client.call<{ session_id: string }>("start_session", { cwd: configDir });
-        const { data, progress } = await client.callWithProgress<{ status: string }>("send_prompt", {
+        const { data, progress } = await client.callWithProgress("send_prompt", {
             session_id: session.data.session_id,
             text: "slow",
         });
         expect(data.status).toBe("idle");
         expect(progress.length).toBeGreaterThanOrEqual(2);
-        for (let index = 1; index < progress.length; index++) {
-            expect(progress[index]?.progress).toBeGreaterThanOrEqual(progress[index - 1]?.progress ?? 0);
-        }
+        const values = progress.map((update) => update.progress);
+        expect(values).toEqual(values.toSorted((a, b) => a - b));
         expect(progress[0]?.message).toMatch(/^Agent is working \(\d+ s\)$/);
         await client.call("close_session", { session_id: session.data.session_id });
     });

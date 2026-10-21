@@ -61,7 +61,9 @@ async function withProgress<T>(
                 method: "notifications/progress",
                 params: { progressToken, progress: seconds, message: `${message} (${seconds} s)` },
             })
-            .catch(() => undefined);
+            .catch(() => {
+                // A host that went away gets no more progress; the call itself still finishes.
+            });
     }, intervalMs);
     try {
         return await operation();
