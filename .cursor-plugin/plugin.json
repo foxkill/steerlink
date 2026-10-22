@@ -1,7 +1,7 @@
 {
     "name": "steerlink",
     "displayName": "SteerLink",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "description": "Steer and remote-control Claude Code from Grok Bot: delegate coding tasks, review every diff, and approve or deny each change. Also works with Codex and other ACP coding agents.",
     "author": {
         "name": "Stefan Martin"

@@ -1,6 +1,6 @@
 {
     "name": "steerlink",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "description": "MCP server that lets Grok Bot and other MCP hosts steer and remote-control Claude Code, Codex and other ACP coding agents, with approval of every change",
     "keywords": [
         "acp",

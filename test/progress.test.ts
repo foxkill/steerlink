@@ -5,7 +5,22 @@ import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { effectiveWaitSeconds } from "../src/mcp/mcp-server.js";
 import { ConnectorClient, FAKE_AGENT_PATH } from "./helpers/connector-client.js";
+
+describe("effectiveWaitSeconds", () => {
+    it("caps waits at 100 s for hosts that do not ask for progress", () => {
+        expect(effectiveWaitSeconds(120, false)).toBe(100);
+        expect(effectiveWaitSeconds(600, false)).toBe(100);
+        expect(effectiveWaitSeconds(30, false)).toBe(30);
+        expect(effectiveWaitSeconds(0, false)).toBe(0);
+    });
+
+    it("keeps the requested wait for hosts that ask for progress", () => {
+        expect(effectiveWaitSeconds(120, true)).toBe(120);
+        expect(effectiveWaitSeconds(600, true)).toBe(600);
+    });
+});
 
 describe("Progress while a call waits", () => {
     const client = new ConnectorClient();

@@ -40,6 +40,19 @@ export const DEFAULT_PROMPT_TIMEOUT_SECONDS = 100;
 type ToolExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
 /**
+ * How long a call may wait. A host that asks for progress keeps waiting while
+ * it arrives, so it gets the full time; any other host gets at most
+ * DEFAULT_PROMPT_TIMEOUT_SECONDS, so the call ends before such hosts give up.
+ */
+export function effectiveWaitSeconds(requested: number, hostAsksForProgress: boolean): number {
+    return hostAsksForProgress ? requested : Math.min(requested, DEFAULT_PROMPT_TIMEOUT_SECONDS);
+}
+
+function asksForProgress(extra: ToolExtra): boolean {
+    return extra._meta?.progressToken !== undefined;
+}
+
+/**
  * Runs a waiting operation and, if the host asked for progress (a
  * progressToken), reports the elapsed time at a fixed interval until it ends.
  */
@@ -177,7 +190,10 @@ export function createMcpServer(manager: SessionManager, options: McpServerOptio
                     .min(1)
                     .max(3600)
                     .optional()
-                    .describe(`Maximum wait time (default ${DEFAULT_PROMPT_TIMEOUT_SECONDS})`),
+                    .describe(
+                        `Maximum wait time (default ${DEFAULT_PROMPT_TIMEOUT_SECONDS}; hosts that do not ask for ` +
+                            `progress get at most ${DEFAULT_PROMPT_TIMEOUT_SECONDS})`,
+                    ),
             },
         },
         ({ session_id, text, wait, timeout_seconds }, extra) =>
@@ -187,7 +203,10 @@ export function createMcpServer(manager: SessionManager, options: McpServerOptio
                         session_id,
                         text,
                         wait: wait ?? true,
-                        timeout_seconds: timeout_seconds ?? DEFAULT_PROMPT_TIMEOUT_SECONDS,
+                        timeout_seconds: effectiveWaitSeconds(
+                            timeout_seconds ?? DEFAULT_PROMPT_TIMEOUT_SECONDS,
+                            asksForProgress(extra),
+                        ),
                     }),
                 ),
             ),
@@ -202,7 +221,16 @@ export function createMcpServer(manager: SessionManager, options: McpServerOptio
                 "wait_seconds > 0 waits that long for new events (long polling).",
             inputSchema: {
                 session_id: sessionId,
-                wait_seconds: z.number().int().min(0).max(600).optional().describe("Long-polling duration (default 0)"),
+                wait_seconds: z
+                    .number()
+                    .int()
+                    .min(0)
+                    .max(600)
+                    .optional()
+                    .describe(
+                        `Long-polling duration (default 0; hosts that do not ask for progress get at most ` +
+                            `${DEFAULT_PROMPT_TIMEOUT_SECONDS})`,
+                    ),
                 include_thoughts: z.boolean().optional().describe("Include the agent's thought chunks (default false)"),
             },
             annotations: { readOnlyHint: true },
@@ -212,7 +240,7 @@ export function createMcpServer(manager: SessionManager, options: McpServerOptio
                 withProgress(extra, progressIntervalMs, "Waiting for the agent", () =>
                     manager.getUpdates({
                         session_id,
-                        wait_seconds: wait_seconds ?? 0,
+                        wait_seconds: effectiveWaitSeconds(wait_seconds ?? 0, asksForProgress(extra)),
                         include_thoughts: include_thoughts ?? false,
                     }),
                 ),
