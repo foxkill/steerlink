@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.10"],
+      "args": ["-y", "steerlink@0.1.11"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }
@@ -110,7 +110,9 @@ Typical flow:
 3. Long tasks: `send_prompt { …, wait: false }` and poll.
 
 While `send_prompt` or `get_session_updates` waits, SteerLink reports progress every 10 seconds to hosts that ask for
-it (a `progressToken`), so such hosts keep waiting instead of aborting the call.
+it (a `progressToken`), so such hosts keep waiting instead of aborting the call. Hosts that do not ask for progress get
+at most 100 seconds per call, whatever `timeout_seconds` or `wait_seconds` says, so the call ends before hosts such as
+Grok Bot give up after two minutes; the result then has `status: running`, and the next call continues.
 
 ## Session view in the chat
 
