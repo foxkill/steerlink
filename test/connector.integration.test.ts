@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { PACKAGE_NAME, PACKAGE_VERSION } from "../src/package-info.js";
 import type { AuthStatusResult, TurnResult, UpdatesResult, AgentInfo } from "../src/sessions/session-manager.js";
 import { ConnectorClient, FAKE_AGENT_PATH } from "./helpers/connector-client.js";
 import { defined } from "./helpers/defined.js";
@@ -225,6 +226,15 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
         expect(closed.data.closed).toBe(true);
         const after = await client.call("send_prompt", { session_id: session.data.session_id, text: "hello" });
         expect(after.isError).toBe(true);
+    });
+
+    it("auth_status reports the running server version", async () => {
+        const status = await client.call<AuthStatusResult>("auth_status", { agent: "fake", probe: false });
+        expect(status.data.server).toEqual({ name: PACKAGE_NAME, version: PACKAGE_VERSION, node: process.version });
+        expect(PACKAGE_VERSION).toBe(
+            (JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as { version: string })
+                .version,
+        );
     });
 
     it("auth_status reports the identity without email", async () => {
