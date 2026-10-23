@@ -9,13 +9,34 @@ format). Reference for format and checklist: <https://cursor.com/docs/reference/
 |---|---|---|
 | License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
 | Name | Decided: `steerlink` / "SteerLink". `agent-steer` was rejected by npm as too similar to the existing `agentsteer` (AgentSteer, a security monitor for AI coding agents); a similar name in the same space would also risk confusion. | — |
-| npm release | `0.1.6` published; repo at `0.1.11` (`auth_status` shows the host's declared capabilities; `session_view` setting) | Run `npm publish` in a real terminal (2FA needs it). `prepublishOnly` runs `check` and `test:package` first. |
-| Repo | `foxkill/steerlink` (renamed from `grokbot-acp-connector`) | Make it public and enable GitHub Pages (source: GitHub Actions). |
+| npm release | `0.1.11` published (tag `next`, tested in Grok Bot); `latest` still `0.1.10` | Run `npm dist-tag add steerlink@0.1.11 latest`, or release `0.1.12` (adds `server` to `auth_status`) and test it. Publish in a real terminal (2FA needs it); `prepublishOnly` runs `check` and `test:package` first. |
+| Repo | `foxkill/steerlink` (renamed from `grokbot-acp-connector`), public | Check that GitHub Pages is enabled (source: GitHub Actions). |
 | Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
 | Donations | PayPal: `paypal.me/foxkilldev` (`.github/FUNDING.yml`, `package.json` `funding`, README, product page) | Later: Ko-fi or GitHub Sponsors as one more line in `FUNDING.yml`. |
 
 Then test locally and in-app as described in [testing-in-grok-bot.md](testing-in-grok-bot.md) — the form requires
 confirming both.
+
+## Test results
+
+**2026-10-23, `0.1.11`, Grok Bot v0.75.2, custom STDIO MCP, subscription token:**
+
+| Check | Result |
+|---|---|
+| Local: `npm run plugin:local -- --subscription` | Passed: 12 tools, `problem: null` |
+| In-app: `auth_status` | `problem: null`; the agent says "Not logged in" as expected with a token, the note explains it |
+| In-app: create a file in mode `default`, user approves in Grok Bot's question card | Passed, content byte-exact |
+| In-app: user denies | Passed: file not created, the agent tried no other way |
+| In-app: close the session | Session ends; the idle `claude-agent-acp` adapter keeps running on purpose (reused for the next session, stopped with the server) |
+| MCP elicitation | Grok Bot declares `elicitation.form` but declines every form at once; SteerLink switches dialogs off and asks the host, as designed |
+
+Found during the test:
+
+- Without the skill's instructions, Grok Bot started a session in `acceptEdits` and once approved a request itself.
+  With the instructions stored on the connector it asked the user every time. The published plugin brings the skill
+  along; a hand-made custom MCP needs the instructions added (Grok Bot can store them on the connector when asked).
+- An old global install (`0.1.1`) on Grok Bot's computer kept running unnoticed. `auth_status` reports `server` from
+  `0.1.12` on.
 
 ## Form fields
 
@@ -67,6 +88,8 @@ Other agents (e.g. Codex) have their own terms.
 
 - The first start downloads about 300 MB (measured with `npm run test:package`: 303 MB `node_modules`, 16 s with a
   warm npm cache). Hosts with a short start timeout can abort the first start.
-- Follow-up questions appear as question cards only because the skill instructs Grok Bot to do so. MCP elicitation
-  (forms sent directly by the server) is not implemented; whether Grok Bot supports it is unknown.
+- Permission requests and follow-up questions appear as Grok Bot's question cards only because the skill instructs
+  Grok Bot to do so. SteerLink sends MCP elicitation forms to hosts that declare them, but Grok Bot (v0.75.2) declines
+  them instantly without showing them, so SteerLink falls back to the host. The user's protection in Grok Bot is the
+  skill, not a dialog.
 - Sessions live only in the server's memory; they are gone after a restart.

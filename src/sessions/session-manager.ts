@@ -15,6 +15,7 @@ import {
 import { AgentProcess, type AgentEventSink, type AgentReportedAuth } from "../acp/agent-process.js";
 import { buildAgentLaunch, describeCredentials, type CredentialPresence } from "../auth/agent-launch.js";
 import type { AgentServerConfig, ConnectorConfig, SessionViewMode } from "../config/connector-config.js";
+import { PACKAGE_NAME, PACKAGE_VERSION } from "../package-info.js";
 import {
     stringifyInput,
     summarizeDiffs,
@@ -122,6 +123,8 @@ export interface AgentInfo {
 }
 
 export interface AuthStatusResult {
+    /** The running SteerLink server, so an outdated install shows at a glance. */
+    server: ServerInfo;
     agent: string;
     auth_mode: string;
     auth_profile: string;
@@ -150,6 +153,13 @@ export interface PermissionPromptStatus {
      */
     session_view_forced: boolean;
     note: string | null;
+}
+
+/** Name and version of the running server, and the Node.js version it runs on. */
+export interface ServerInfo {
+    name: string;
+    version: string;
+    node: string;
 }
 
 /** The MCP host as it introduced itself: name, version and its declared capabilities, unchanged. */
@@ -771,6 +781,7 @@ export class SessionManager implements AgentEventSink {
         }
 
         return {
+            server: { name: PACKAGE_NAME, version: PACKAGE_VERSION, node: process.version },
             agent: name,
             auth_mode: isClaude ? this.config.auth_mode : "n/a",
             auth_profile: server.auth_profile,
