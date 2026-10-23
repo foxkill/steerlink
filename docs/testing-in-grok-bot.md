@@ -19,8 +19,10 @@ appear, and try the prompts from step 6 below. Remove it afterwards with `npm ru
 ```bash
 npm login
 npm publish --tag next
-npm view steerlink dist-tags          # expect: next: 0.1.0-rc.0
+npm view steerlink dist-tags          # expect: next: <the version in package.json>
 ```
+
+Run these in the project folder. npm may need a few minutes before the new version can be installed.
 
 `prepublishOnly` runs `npm run check` and `npm run test:package` first and stops the release if anything fails. The
 `next` tag keeps the prerelease away from users who install `steerlink` without a version.
@@ -29,7 +31,12 @@ npm view steerlink dist-tags          # expect: next: 0.1.0-rc.0
 
 Grok Bot runs custom MCP servers on its own computer (Linux), not on your PC. Ask Grok Bot in a chat:
 
-> Run on your computer: `node --version` and `npm install -g steerlink@0.1.0-rc.0`
+> Run on your computer and show me the raw output: `node --version`, `npm install -g steerlink@<version>`,
+> `npm ls -g steerlink` and `which -a steerlink`
+
+Check that `npm ls -g` shows the version you just published. An older global install (for example under another
+Node.js version in `~/.nvm`) can otherwise keep running unnoticed; from `0.1.12` on, `auth_status` shows the running
+version under `server`.
 
 - Node.js **20.19 or newer** is enough; Grok Bot's computer already has it. npm may print an `EBADENGINE` warning
   for `claude-agent-acp` (it declares Node 22); it runs fine on Node 20.
@@ -53,24 +60,30 @@ Open the Bot's plugin settings, choose **Add a custom MCP**, type **STDIO**:
 | Field | Value |
 |---|---|
 | Name | `steerlink` |
-| Command | `steerlink` (after the global install from step 3) |
+| Command | `steerlink`, or the full path that `which steerlink` printed in step 3 |
 | Arguments | none |
 | Environment variables | from step 4 |
 
-A custom MCP server does not bring the plugin's skill along. Paste the content of
-`skills/delegate-to-coding-agent/SKILL.md` (without the `---` header) into the server's **custom instructions**, so
-Grok Bot asks you before every change, exactly as the published plugin will.
+A custom MCP server does not bring the plugin's skill along. Without it Grok Bot may pick `acceptEdits` or approve
+requests itself (seen in the test on 2026-10-23). The app has no field for it; instead send Grok Bot the content of
+`skills/delegate-to-coding-agent/SKILL.md` (without the `---` header) and ask it to store the text unchanged as
+permanent instructions on the steerlink connector. Then it asks you before every change, as the published plugin will.
 
 ## 6. Test conversation
 
-1. "Call auth_status of steerlink." Expect `problem: null`.
-2. "Create the folder /tmp/steerlink-demo and let Claude Code create hello.txt there with the content hi."
-   Grok Bot calls `start_session` and `send_prompt`; Claude Code asks for permission to write `hello.txt`.
-3. Grok Bot shows the request with the diff and asks you. Approve it. Expect status `idle` and
+1. "Call auth_status of steerlink." Expect `problem: null` (and from `0.1.12` on, `server.version` as published).
+   With a subscription token the agent says "Not logged in"; that is expected and the `note` explains it.
+2. "Create the folder /tmp/steerlink-demo, start a steerlink session there in mode default and let Claude Code create
+   hello.txt with the content hi." Claude Code asks for permission to write `hello.txt`.
+3. Grok Bot shows the request with the diff or command and asks you. Approve it. Expect status `idle` and
    `/tmp/steerlink-demo/hello.txt` with the content `hi`.
 4. Repeat with a second file and deny the request. The file must not exist.
-5. "Close the session." Then ask Grok Bot to run `ps aux | grep -i claude` on its computer: no Claude process from the
-   test may be left over.
+5. "Close the session." Then ask Grok Bot to run `ps aux | grep -i claude` on its computer. One idle
+   `claude-agent-acp` process is expected: SteerLink keeps the adapter for the next session and stops it with the
+   server. No other Claude process from the test may be left over.
+
+If Grok Bot answers a request itself instead of asking you, the instructions from step 5 are missing.
+`auth_status` → `permission_prompt.note` reports when SteerLink switched dialogs off because the host declined them.
 
 Note anything unexpected (wording of the approval card, timeouts, errors) before submitting.
 
