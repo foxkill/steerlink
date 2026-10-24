@@ -780,6 +780,21 @@ export class SessionManager implements AgentEventSink {
                 : "Claude subscription via the existing Claude Code login (claude /login)";
         }
 
+        // Without a token, "Not logged in" is the real state: no session will work.
+        if (
+            problem === null &&
+            isClaude &&
+            this.config.auth_mode === "subscription" &&
+            !credentials.claude_code_oauth_token_set &&
+            reported?.kind === "none"
+        ) {
+            problem =
+                "Not signed in: there is no CLAUDE_CODE_OAUTH_TOKEN and no stored Claude Code login on the machine " +
+                'where steerlink runs. Call authenticate with method_id "claude-ai-login"; the user runs the ' +
+                "returned command in a terminal on that machine and signs in through Anthropic's page. Then call " +
+                "auth_status with restart_agent=true.";
+        }
+
         return {
             server: { name: PACKAGE_NAME, version: PACKAGE_VERSION, node: process.version },
             agent: name,

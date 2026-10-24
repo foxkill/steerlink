@@ -33,8 +33,13 @@ confirming both.
 Found during the test:
 
 - Without the skill's instructions, Grok Bot started a session in `acceptEdits` and once approved a request itself.
-  With the instructions stored on the connector it asked the user every time. The published plugin brings the skill
-  along; a hand-made custom MCP needs the instructions added (Grok Bot can store them on the connector when asked).
+  After being told in the chat it asked the user every time. Instructions stored on a custom connector are cut off
+  after 500 characters, so the stored skill text had lost its permission rules; the testing guide now uses a short
+  version. The published plugin brings the full skill as a file.
+- Subscription without a token works like in Zed: with `CLAUDE_CODE_OAUTH_TOKEN=""` on the connector, SteerLink used
+  the stored Claude Code login on Grok Bot's computer (`Claude Max`). That login was completed by a browser on Grok
+  Bot's computer that was already signed in to claude.ai; the manual login with a code is not tested yet. Before
+  `0.1.13`, `auth_status` reported `problem: null` when neither a token nor a login existed.
 - An old global install (`0.1.1`) on Grok Bot's computer kept running unnoticed. `auth_status` reports `server` from
   `0.1.12` on.
 
