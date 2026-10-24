@@ -64,10 +64,22 @@ Open the Bot's plugin settings, choose **Add a custom MCP**, type **STDIO**:
 | Arguments | none |
 | Environment variables | from step 4 |
 
+The app cannot edit a connector afterwards (only uninstall it under Ctrl+K → *Apps verbinden* → *Plugins und Skills
+verwalten*). To change a variable, ask Grok Bot to delete and recreate the connector. A variable with an empty value
+(for example `CLAUDE_CODE_OAUTH_TOKEN=""`) switches off a value set in Grok Bot's general environment.
+
 A custom MCP server does not bring the plugin's skill along. Without it Grok Bot may pick `acceptEdits` or approve
-requests itself (seen in the test on 2026-10-23). The app has no field for it; instead send Grok Bot the content of
-`skills/delegate-to-coding-agent/SKILL.md` (without the `---` header) and ask it to store the text unchanged as
-permanent instructions on the steerlink connector. Then it asks you before every change, as the published plugin will.
+requests itself (seen in the test on 2026-10-23). The app has no field for it, but Grok Bot can store permanent
+instructions on the connector when asked. **They are cut off after 500 characters**, so the full skill does not fit
+(in the test it ended inside the tool table and the permission rules were lost). Ask Grok Bot to store exactly this
+short version instead:
+
+```text
+steerlink rules: Start sessions in mode default unless I ask otherwise. Never approve a permission request yourself: show me what the agent wants (file and diff, or command) and ask: Allow once, Always allow, Deny. Then call respond_permission with my answer. Never switch to acceptEdits or bypassPermissions on your own. Report results faithfully, including failures. Close sessions when done. Never ask for or print keys or tokens.
+```
+
+Then ask it to show the stored text back and check that it ends with "keys or tokens.". The published plugin brings
+the full skill as a file and is not affected by this limit.
 
 ## 6. Test conversation
 

@@ -274,6 +274,50 @@ describe("Connector with fake ACP agent (MCP → connector → ACP)", () => {
     });
 });
 
+describe("auth_status in subscription mode without a token", () => {
+    const client = new ConnectorClient();
+    let configDir: string;
+
+    beforeAll(async () => {
+        configDir = mkdtempSync(join(tmpdir(), "acp-connector-no-login-"));
+        const configPath = join(configDir, "config.json");
+        // A Claude-profile agent without a stored login: it reports "Not logged in".
+        writeFileSync(
+            configPath,
+            JSON.stringify({
+                default_agent: "claude-like",
+                agent_servers: {
+                    "claude-like": {
+                        command: process.execPath,
+                        args: ["--import", "tsx", FAKE_AGENT_PATH],
+                        env: { FAKE_AUTH_KIND: "none", FAKE_NO_COMMANDS: "1" },
+                        auth_profile: "claude",
+                    },
+                },
+            }),
+        );
+        await client.connect(
+            { ACP_CONNECTOR_CONFIG: configPath, ACP_CONNECTOR_AUTH_MODE: "subscription", CLAUDE_CODE_OAUTH_TOKEN: "" },
+            false,
+            true,
+        );
+    });
+
+    afterAll(async () => {
+        await client.close();
+        await rm(configDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+    });
+
+    it('reports "Not logged in" as a problem and names the login method', async () => {
+        const status = await client.call<AuthStatusResult>("auth_status", {});
+        expect(status.data.credentials.claude_code_oauth_token_set).toBe(false);
+        expect(status.data.agent_reported).toEqual({ kind: "none", label: "Not logged in" });
+        expect(status.data.problem).toMatch(/^Not signed in/);
+        expect(status.data.problem).toContain("claude-ai-login");
+        expect(status.data.note).toBeNull();
+    });
+});
+
 describe("auth_status with a subscription token", () => {
     const client = new ConnectorClient();
     let configDir: string;
