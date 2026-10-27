@@ -153,7 +153,9 @@ but decline every dialog at once; SteerLink notices that and switches dialogs of
 `auth_status` reports `permission_prompt: { mode, user_dialog, session_view, session_view_forced, note }`, so you can check what your host
 supports. Its `host` field shows the host's name, version and the capabilities it declared on connect, unchanged
 (MCP Apps appear under `capabilities.extensions["io.modelcontextprotocol/ui"]`). With `ACP_CONNECTOR_DEBUG=1` the same
-goes to stderr. Its `server` field shows SteerLink's own name and version and the Node.js version it runs on, so an
+goes to stderr, together with every dialog SteerLink sends and the host's raw answer (`action`, content, milliseconds).
+If dialogs were switched off, `permission_prompt.note` names the host's answer and how fast it came. Dialogs use the
+titled single-select of the current MCP spec (`oneOf` with `const`/`title`), not the deprecated `enumNames`. Its `server` field shows SteerLink's own name and version and the Node.js version it runs on, so an
 outdated install on the host's computer shows at a glance.
 
 ## Authentication and billing

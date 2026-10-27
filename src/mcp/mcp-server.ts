@@ -91,6 +91,8 @@ const agentName = z.string().optional().describe("Name from list_agents; default
 export interface McpServerOptions {
     /** Interval of progress notifications while a call waits (default 10 s). */
     progressIntervalMs?: number | undefined;
+    /** Logs dialog requests and the host's answers to stderr (ACP_CONNECTOR_DEBUG=1). */
+    debug?: boolean | undefined;
 }
 
 export function createMcpServer(manager: SessionManager, options: McpServerOptions = {}): McpServer {
@@ -122,13 +124,24 @@ export function createMcpServer(manager: SessionManager, options: McpServerOptio
             capabilities: capabilities ?? null,
         });
         const prompter = supportsFormDialogs(capabilities)
-            ? createElicitationPrompter(server, () => {
-                  manager.setPermissionPrompter(
-                      undefined,
-                      "Dialogs switched off: the host declared form support but answered a dialog instantly, " +
-                          "so it cannot show them. Permission requests go to the host again.",
-                  );
-              })
+            ? createElicitationPrompter(
+                  server,
+                  (action, elapsedMs) => {
+                      manager.setPermissionPrompter(
+                          undefined,
+                          `Dialogs switched off: the host declared form support but answered a dialog instantly ` +
+                              `(action=${action} after ${elapsedMs} ms), so it cannot show them. ` +
+                              "Permission requests go to the host again.",
+                      );
+                  },
+                  options.debug === true
+                      ? {
+                            log: (message: string): void => {
+                                console.error(`[steerlink] ${message}`);
+                            },
+                        }
+                      : {},
+              )
             : undefined;
         manager.setPermissionPrompter(prompter);
         const declared = supportsMcpApps(capabilities);

@@ -13,10 +13,11 @@ async function main(): Promise<void> {
     console.log = console.error;
 
     const config = loadConnectorConfig();
-    const manager = new SessionManager(config, process.env.ACP_CONNECTOR_DEBUG === "1");
+    const debug = process.env.ACP_CONNECTOR_DEBUG === "1";
+    const manager = new SessionManager(config, debug);
     // Only for tests: a short interval, so progress notifications show up within seconds.
     const progressIntervalMs = Number(process.env.ACP_CONNECTOR_PROGRESS_INTERVAL_MS) || undefined;
-    const server = createMcpServer(manager, { progressIntervalMs });
+    const server = createMcpServer(manager, { progressIntervalMs, debug });
 
     let shuttingDown = false;
     const shutdown = async (): Promise<void> => {

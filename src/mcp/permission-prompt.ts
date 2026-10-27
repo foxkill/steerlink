@@ -51,14 +51,18 @@ export function describePermission(request: {
  */
 export function createElicitationPrompter(
     server: McpServer,
-    onUnusable: () => void,
-    now: () => number = Date.now,
+    onUnusable: (action: string, elapsedMs: number) => void,
+    options: ElicitationPrompterOptions = {},
 ): PermissionPrompter {
+    const now = options.now ?? Date.now;
+    const log = options.log;
     return async (request, signal) => {
         const decisions = decisionsFor(request.permission);
         if (decisions.length === 0) {
             return null;
         }
+        // Titled single-select in the current MCP form (oneOf with const/title);
+        // enum + enumNames is the deprecated legacy form.
         const params: ElicitRequestFormParams = {
             mode: "form",
             message: describePermission(request),
@@ -68,22 +72,41 @@ export function createElicitationPrompter(
                     decision: {
                         type: "string",
                         title: "Decision",
-                        enum: decisions,
-                        enumNames: decisions.map((decision) => DECISION_LABEL[decision]),
+                        oneOf: decisions.map((decision) => ({ const: decision, title: DECISION_LABEL[decision] })),
                     },
                 },
                 required: ["decision"],
             },
         };
+        log?.(`dialog sent: decisions=${decisions.join(",")}`);
         const shownAt = now();
-        const result = await server.server.elicitInput(params, { signal, timeout: PROMPT_TIMEOUT_MS });
+        let result: Awaited<ReturnType<typeof server.server.elicitInput>>;
+        try {
+            result = await server.server.elicitInput(params, { signal, timeout: PROMPT_TIMEOUT_MS });
+        } catch (error) {
+            log?.(
+                `dialog failed after ${now() - shownAt} ms: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            throw error;
+        }
+        const elapsed = now() - shownAt;
+        log?.(
+            `dialog answered: action=${result.action} after ${elapsed} ms, content=${JSON.stringify(result.content ?? null)}`,
+        );
         if (result.action !== "accept") {
-            if (now() - shownAt < INSTANT_ANSWER_MS) {
-                onUnusable();
+            if (elapsed < INSTANT_ANSWER_MS) {
+                onUnusable(result.action, elapsed);
             }
             return null;
         }
         const chosen = result.content?.decision;
         return decisions.find((decision) => decision === chosen) ?? null;
     };
+}
+
+export interface ElicitationPrompterOptions {
+    /** Clock for the instant-answer check (tests). */
+    now?: () => number;
+    /** Debug output (stderr with ACP_CONNECTOR_DEBUG=1): what was sent, what the host answered and how fast. */
+    log?: (message: string) => void;
 }
