@@ -118,8 +118,12 @@ describe("Permission dialog (MCP elicitation)", () => {
             requestedSchema: {
                 properties: {
                     decision: {
-                        enum: ["allow", "allow_always", "deny"],
-                        enumNames: ["Allow once", "Always allow", "Deny"],
+                        type: "string",
+                        oneOf: [
+                            { const: "allow", title: "Allow once" },
+                            { const: "allow_always", title: "Always allow" },
+                            { const: "deny", title: "Deny" },
+                        ],
                     },
                 },
                 required: ["decision"],
@@ -262,7 +266,9 @@ describe("A host that declares dialogs but declines them instantly (Grok Bot)", 
         expect(pending.asked_user).toBe(false);
         const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
         expect(status.data.permission_prompt.user_dialog).toBe(false);
-        expect(status.data.permission_prompt.note).toContain("answered a dialog instantly");
+        expect(status.data.permission_prompt.note).toMatch(
+            /answered a dialog instantly \(action=decline after \d+ ms\)/,
+        );
 
         await client.call("respond_permission", { permission_id: pending.permission_id, decision: "allow" });
         // The turn ends after the file is written; a second prompt before that would be refused.
