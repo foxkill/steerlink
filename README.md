@@ -48,7 +48,7 @@ Any MCP host that runs stdio servers can use the bridge directly (Node.js ≥ 20
   "mcpServers": {
     "steerlink": {
       "command": "npx",
-      "args": ["-y", "steerlink@0.1.13"],
+      "args": ["-y", "steerlink@0.1.14"],
       "env": { "ANTHROPIC_API_KEY": "<your Anthropic API key>" }
     }
   }

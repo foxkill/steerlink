@@ -9,7 +9,7 @@ format). Reference for format and checklist: <https://cursor.com/docs/reference/
 |---|---|---|
 | License | Decided: MIT, copyright Stefan Martin (`LICENSE`, `package.json`, `plugin.json`) | — |
 | Name | Decided: `steerlink` / "SteerLink". `agent-steer` was rejected by npm as too similar to the existing `agentsteer` (AgentSteer, a security monitor for AI coding agents); a similar name in the same space would also risk confusion. | — |
-| npm release | `0.1.12` published and `latest` (tested in Grok Bot); repo at `0.1.13` (`auth_status` reports a missing login in subscription mode) | Publish `0.1.13` in a real terminal (2FA needs it); `prepublishOnly` runs `check` and `test:package` first. Then `npm dist-tag add steerlink@0.1.13 latest` once `auth_status` shows `server.version: 0.1.13` in Grok Bot. |
+| npm release | `0.1.13` published and `latest`; repo at `0.1.14` (dialogs as titled `oneOf`, host answer in `auth_status` note) | Publish `0.1.14` in a real terminal (2FA needs it); `prepublishOnly` runs `check` and `test:package` first. Then `npm dist-tag add steerlink@0.1.14 latest` once `auth_status` shows `server.version: 0.1.14` in Grok Bot. |
 | Repo | `foxkill/steerlink` (renamed from `grokbot-acp-connector`), public | Check that GitHub Pages is enabled (source: GitHub Actions). |
 | Author | Decided: Stefan Martin (`package.json`, `plugin.json`) | Use the same name in the form. |
 | Donations | PayPal: `paypal.me/foxkilldev` (`.github/FUNDING.yml`, `package.json` `funding`, README, product page) | Later: Ko-fi or GitHub Sponsors as one more line in `FUNDING.yml`. |
