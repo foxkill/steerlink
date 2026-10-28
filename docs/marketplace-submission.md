@@ -43,6 +43,13 @@ Found during the test:
 - An old global install (`0.1.1`) on Grok Bot's computer kept running unnoticed. `auth_status` reports `server` from
   `0.1.12` on.
 
+**2026-10-28, `0.1.14`, same setup:** MCP elicitation retested with the current schema (titled single-select,
+`oneOf` with `const`/`title`, instead of the deprecated `enum` + `enumNames`). Grok Bot again answered the form with
+`action=decline` after 14 ms, without showing it. SteerLink switched dialogs off; the permission request went to
+Grok Bot, which asked in its own question card and answered with `respond_permission`
+(`permission_resolved.answered_by: "host"`). So the schema was not the cause: Grok Bot declares `elicitation.form` but
+does not render forms. Reported to xAI, see [xai-bug-report.md](xai-bug-report.md).
+
 ## Form fields
 
 | Field | Value |
@@ -95,6 +102,7 @@ Other agents (e.g. Codex) have their own terms.
   warm npm cache). Hosts with a short start timeout can abort the first start.
 - Permission requests and follow-up questions appear as Grok Bot's question cards only because the skill instructs
   Grok Bot to do so. SteerLink sends MCP elicitation forms to hosts that declare them, but Grok Bot (v0.75.2) declines
-  them instantly without showing them, so SteerLink falls back to the host. The user's protection in Grok Bot is the
-  skill, not a dialog.
+  them within milliseconds without showing them (`action=decline after 14 ms`, with the legacy and the current
+  schema), so SteerLink falls back to the host. The user's protection in Grok Bot is the skill, not a dialog, and
+  `permission_prompt=required` cannot be used there (nobody could allow anything).
 - Sessions live only in the server's memory; they are gone after a restart.
