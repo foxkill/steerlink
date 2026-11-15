@@ -1,6 +1,6 @@
 // The session view: an MCP App the host renders in the chat. It follows a
 // session live and lets the user answer permission requests, send messages
-// and stop the agent. Everything from the agent is inserted as text, never as HTML.
+// and stop the agent. Message bodies are rendered from Markdown and sanitized.
 
 import {
     App,
@@ -11,6 +11,7 @@ import {
 } from "@modelcontextprotocol/ext-apps/app-with-deps";
 
 import type { PermissionDecision } from "../../src/sessions/session-events.js";
+import { markdownBody } from "./markdown.js";
 import {
     addOwnMessage,
     applyState,
@@ -56,10 +57,16 @@ function byId(id: string): HTMLElement {
 
 function renderCard(card: Card): HTMLElement {
     switch (card.type) {
-        case "message":
-            return element("div", "card message", card.text);
-        case "you":
-            return element("div", "card you", card.text);
+        case "message": {
+            const box = element("div", "card message");
+            box.append(markdownBody(card.text));
+            return box;
+        }
+        case "you": {
+            const box = element("div", "card you");
+            box.append(markdownBody(card.text));
+            return box;
+        }
         case "note":
             return element("div", `note ${card.tone}`, card.text);
         case "plan": {
