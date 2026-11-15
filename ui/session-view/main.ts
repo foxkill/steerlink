@@ -74,7 +74,7 @@ function renderCard(card: Card): HTMLElement {
             const summary = element("summary");
             summary.append(
                 element("span", `badge status-${card.status}`, card.status),
-                element("span", "", ` ${card.title}`),
+                element("span", "tool-title", ` ${card.title}`),
             );
             box.append(summary);
             for (const diff of card.diffs) {
