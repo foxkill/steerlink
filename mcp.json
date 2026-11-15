@@ -4,8 +4,9 @@
             "command": "npx",
             "args": ["-y", "steerlink@0.1.14"],
             "env": {
+                "ACP_CONNECTOR_AUTH_MODE": "${ACP_CONNECTOR_AUTH_MODE}",
+                "CLAUDE_CODE_OAUTH_TOKEN": "${CLAUDE_CODE_OAUTH_TOKEN}",
                 "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
-                "ACP_CONNECTOR_AUTH_MODE": "api_key",
                 "ACP_CONNECTOR_SESSION_VIEW": "${ACP_CONNECTOR_SESSION_VIEW}"
             }
         }

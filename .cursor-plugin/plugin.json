@@ -33,19 +33,32 @@
     "variables": {
         "type": "object",
         "properties": {
+            "ACP_CONNECTOR_AUTH_MODE": {
+                "type": "string",
+                "title": "Auth mode",
+                "description": "Use subscription with a Claude setup-token or stored Claude Code login. Use api_key only with an Anthropic Console key.",
+                "enum": ["subscription", "api_key"],
+                "default": "subscription"
+            },
+            "CLAUDE_CODE_OAUTH_TOKEN": {
+                "type": "string",
+                "title": "Claude Code OAuth / setup-token",
+                "description": "Paste the token from `claude setup-token` (Windows). Leave empty only if Claude Code is already logged in on this same Windows host."
+            },
             "ANTHROPIC_API_KEY": {
                 "type": "string",
-                "title": "Anthropic API key",
-                "description": "Your own key from the Claude Console (platform.claude.com). Usage is billed directly to your Anthropic account."
+                "title": "Anthropic API key (api_key mode only)",
+                "description": "Not needed in subscription mode. Your own key from platform.claude.com if you switch auth mode to api_key."
             },
             "ACP_CONNECTOR_SESSION_VIEW": {
                 "type": "string",
                 "title": "Session view",
-                "description": "auto (default): show the live session view only where the app declares support. on: offer it anyway, to try whether the app renders it. off: never.",
+                "description": "auto (default): show the live session view only where the app declares support. on: offer it anyway. off: never.",
                 "enum": ["auto", "on", "off"],
                 "default": "auto"
             }
         },
-        "required": ["ANTHROPIC_API_KEY"]
-    }
+        "required": ["ACP_CONNECTOR_AUTH_MODE"]
+    },
+    "mcpServers": "./mcp.json"
 }

@@ -125,8 +125,8 @@ and stop it there.
 
 - A click in the view is your own answer: the view's tools are hidden from the model, so it also counts in
   `permission_prompt=required` mode.
-- The view is one self-contained HTML document; it loads nothing from the internet, and everything from the agent is
-  shown as text.
+- The view is one self-contained HTML document; it loads nothing from the internet, and messages are rendered as
+  sanitized Markdown: no images, no scripts, raw HTML is shown as text. Everything else from the agent is shown as text.
 - Hosts without MCP Apps (Grok Bot at the moment) do not see `show_session` and work as before.
 - `ACP_CONNECTOR_SESSION_VIEW` (plugin setting *Session view*): `auto` (default) offers the view only where the host
   declares MCP Apps; `on` offers it anyway, to try whether a host such as Grok Bot renders it; `off` never offers it.

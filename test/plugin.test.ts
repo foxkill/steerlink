@@ -540,20 +540,36 @@ describe("plugin against the real connector", () => {
         expect(toolsInSkillTable(skill)).not.toContain("show_session");
     });
 
-    it("mcp.json sets the API key mode and only declared variables", () => {
-        expect(pluginEnv.ACP_CONNECTOR_AUTH_MODE).toBe("api_key");
+    it("mcp.json passes auth-related plugin variables", () => {
+        expect(pluginEnv.ACP_CONNECTOR_AUTH_MODE).toBe("${ACP_CONNECTOR_AUTH_MODE}");
+        expect(pluginEnv.CLAUDE_CODE_OAUTH_TOKEN).toBe("${CLAUDE_CODE_OAUTH_TOKEN}");
         expect(pluginEnv.ANTHROPIC_API_KEY).toBe("${ANTHROPIC_API_KEY}");
     });
 
-    it("unset plugin variable: a clear hint instead of a failed start", async () => {
-        const status = await unset.call<AuthStatusResult>("auth_status", {});
+    it("unset plugin variable in api_key mode: a clear hint instead of a failed start", async () => {
+        const apiKeyEnv = { ...pluginEnv, ACP_CONNECTOR_AUTH_MODE: "api_key" };
+        const client = await connect(apiKeyEnv);
+        const status = await client.call<AuthStatusResult>("auth_status", {});
         expect(status.data.auth_mode).toBe("api_key");
         expect(status.data.credentials.anthropic_api_key_set).toBe(false);
         expect(status.data.problem).toMatch(/plugin settings/);
 
-        const session = await unset.call("start_session", { cwd: repoRoot });
+        const session = await client.call("start_session", { cwd: repoRoot });
         expect(session.isError).toBe(true);
         expect(session.text).toMatch(/plugin settings \(variable ANTHROPIC_API_KEY\)/);
+    });
+
+    it("subscription token from plugin env is detected without being printed", async () => {
+        const token = "test-oauth-token-not-real";
+        const client = await connect({
+            ...pluginEnv,
+            ACP_CONNECTOR_AUTH_MODE: "subscription",
+            CLAUDE_CODE_OAUTH_TOKEN: token,
+        });
+        const status = await client.call<AuthStatusResult>("auth_status", { probe: false });
+        expect(status.data.credentials.claude_code_oauth_token_set).toBe(true);
+        expect(status.data.problem).toBeNull();
+        expect(status.text).not.toContain(token);
     });
 
     it("a set plugin variable is detected without being printed", async () => {
